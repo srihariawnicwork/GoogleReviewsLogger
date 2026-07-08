@@ -1,0 +1,55 @@
+{
+  "title": "Google Reviews → n8n input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "locations": {
+      "title": "Locations",
+      "type": "array",
+      "description": "One entry per place to monitor. 'mode' = 'own' routes through Groq analysis + notifications; anything else (e.g. 'competitor') is logged raw. For competitors put the competitor's name in 'branch'.",
+      "editor": "json",
+      "prefill": [
+        {
+          "url": "https://www.google.com/maps/place/.../?hl=en",
+          "branch": "Abu Dhabi Main Office",
+          "department": "Main",
+          "mode": "own"
+        }
+      ]
+    },
+    "webhookUrl": {
+      "title": "n8n webhook URL",
+      "type": "string",
+      "description": "Production webhook URL of the n8n workflow, e.g. https://your-n8n/webhook/new-review",
+      "editor": "textfield"
+    },
+    "maxReviewsPerRun": {
+      "title": "Max reviews per location per run",
+      "type": "integer",
+      "description": "How many newest reviews to load/check each run. Must be high enough that already-logged reviews are re-checked for amendments / owner replies.",
+      "default": 20,
+      "minimum": 1
+    },
+    "timezoneOffsetHours": {
+      "title": "Timezone offset from UTC (hours)",
+      "type": "integer",
+      "description": "Applied to the Logged At / Last Updated At timestamps. Apify runs in UTC; set 4 for Gulf Standard Time (UAE).",
+      "default": 0
+    },
+    "googleCookies": {
+      "title": "Google session cookies (optional)",
+      "type": "array",
+      "description": "Playwright-format cookies from a signed-in Google session. Supply these (or use a residential proxy) if Google serves a 'limited view' with no reviews. Export with a 'Get cookies.txt'-style extension and convert to Playwright JSON.",
+      "editor": "json",
+      "isSecret": true
+    },
+    "proxyConfiguration": {
+      "title": "Proxy",
+      "type": "object",
+      "description": "Apify Proxy. Residential proxies are recommended to avoid Google's automation gate.",
+      "editor": "proxy",
+      "default": { "useApifyProxy": true, "apifyProxyGroups": ["RESIDENTIAL"] }
+    }
+  },
+  "required": ["locations", "webhookUrl"]
+}

@@ -1,0 +1,9 @@
+# AWNIC review scraper — cron schedule
+# Install with:  crontab -e   (paste the line below, fix the path to your VM path)
+#
+# Every 4 hours (recommended: catches new reviews + re-checks for owner replies
+# without hammering Apify/Groq). Change to "0 * * * *" for hourly.
+#
+# 0 */4 * * * /home/UBUNTU_USER/awnic/deploy/run_reviews.sh
+#
+# Tip: use an absolute path. Verify your path with:  realpath deploy/run_reviews.sh
