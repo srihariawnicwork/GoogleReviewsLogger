@@ -1,0 +1,96 @@
+{
+  "name": "AWNIC Dashboard Data",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "dashboard-data",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-dash-webhook",
+      "name": "Dashboard Data",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "webhookId": "dashboard-data-webhook"
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "operation": "getRows",
+        "workbook": { "__rl": true, "value": "REPLACE_WITH_WORKBOOK_ID", "mode": "list" },
+        "worksheet": { "__rl": true, "value": "REPLACE_WITH_OWN_SHEET_ID", "mode": "list" },
+        "table": { "__rl": true, "value": "OwnReviewsTable", "mode": "list" },
+        "options": {}
+      },
+      "id": "node-dash-own",
+      "name": "Get Own Rows",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "typeVersion": 2,
+      "position": [440, 200],
+      "credentials": { "microsoftExcelOAuth2Api": { "id": "REPLACE_MS365_CREDENTIAL_ID", "name": "MS365 Account" } }
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "operation": "getRows",
+        "workbook": { "__rl": true, "value": "REPLACE_WITH_WORKBOOK_ID", "mode": "list" },
+        "worksheet": { "__rl": true, "value": "REPLACE_WITH_COMPETITOR_SHEET_ID", "mode": "list" },
+        "table": { "__rl": true, "value": "CompetitorReviewsTable", "mode": "list" },
+        "options": {}
+      },
+      "id": "node-dash-comp",
+      "name": "Get Competitor Rows",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "typeVersion": 2,
+      "position": [440, 420],
+      "credentials": { "microsoftExcelOAuth2Api": { "id": "REPLACE_MS365_CREDENTIAL_ID", "name": "MS365 Account" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine both tables into one JSON payload for the dashboard.\nconst own = $('Get Own Rows').all().map(i => i.json);\nconst competitor = $('Get Competitor Rows').all().map(i => i.json);\nreturn [{ json: { generated_at: new Date().toISOString(), own, competitor } }];"
+      },
+      "id": "node-dash-build",
+      "name": "Build JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Cache-Control", "value": "no-store" }
+            ]
+          }
+        }
+      },
+      "id": "node-dash-respond",
+      "name": "Respond JSON",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [940, 300]
+    }
+  ],
+  "connections": {
+    "Dashboard Data": {
+      "main": [[
+        { "node": "Get Own Rows", "type": "main", "index": 0 },
+        { "node": "Get Competitor Rows", "type": "main", "index": 0 }
+      ]]
+    },
+    "Get Own Rows": { "main": [[{ "node": "Build JSON", "type": "main", "index": 0 }]] },
+    "Get Competitor Rows": { "main": [[{ "node": "Build JSON", "type": "main", "index": 0 }]] },
+    "Build JSON": { "main": [[{ "node": "Respond JSON", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "1.0.0",
+  "meta": { "instanceId": "awnic-dashboard-data" },
+  "tags": []
+}

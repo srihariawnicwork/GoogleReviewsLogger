@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AWNIC Google Reviews Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --navy:#0B2A4A; --navy2:#123A63; --gold:#C9A24B; --gold-soft:#E4CE93;
+    --pos:#2F8F5B; --neg:#C0392B; --page:#EAEDF3; --card:#FFFFFF;
+    --line:#E7EAF0; --muted:#8A93A3; --muted2:#6B7686; --ink:#0B2A4A;
+    --shadow:0 2px 10px rgba(11,42,74,.05);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page);color:var(--ink);
+    font-family:'IBM Plex Sans','IBM Plex Sans Arabic',-apple-system,Segoe UI,Roboto,sans-serif}
+  header{background:linear-gradient(100deg,#08213E 0%,#0B2A4A 55%,#123A63 100%);
+    box-shadow:0 2px 14px rgba(8,22,44,.25);padding:18px 28px;
+    display:flex;align-items:center;justify-content:space-between}
+  header .brand{display:flex;align-items:baseline;gap:12px}
+  header .mark{color:var(--gold);font-weight:700;font-size:20px;letter-spacing:1px}
+  header .sub{color:#D8DEE9;font-size:14px;letter-spacing:.3px}
+  #status{color:#A9BCD4;font-size:12px}
+  main{padding:22px 28px;max-width:1440px;margin:0 auto}
+  .grid{display:grid;gap:16px}
+  .kpis{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));margin-bottom:18px}
+  .cards{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:18px;box-shadow:var(--shadow)}
+  .card h2{font-size:11px;color:var(--muted);text-transform:uppercase;
+    letter-spacing:.6px;margin:0 0 14px;font-weight:600}
+  .kpi{border-top:3px solid var(--gold);position:relative}
+  .kpi .v{font-size:32px;font-weight:700;color:var(--navy);line-height:1}
+  .kpi .l{color:var(--muted2);font-size:12px;margin-top:8px;text-transform:uppercase;letter-spacing:.5px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid #EAEDF3;vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  td{color:#3A4453}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap}
+  .pos{background:rgba(47,143,91,.12);color:var(--pos)}
+  .neg{background:rgba(192,57,43,.12);color:var(--neg)}
+  .pend{background:rgba(201,162,75,.16);color:#9A7B23}
+  .postd{background:rgba(18,58,99,.10);color:var(--navy2)}
+  .scroll{max-height:340px;overflow:auto}
+  canvas{max-height:260px}
+  a{color:var(--navy2)}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span class="mark">AWNIC</span>
+    <span class="sub">Google Reviews Dashboard</span>
+  </div>
+  <div id="status">loading…</div>
+</header>
+<main>
+  <div class="grid kpis" id="kpis"></div>
+  <div class="grid cards">
+    <div class="card"><h2>Sentiment</h2><canvas id="sentiment"></canvas></div>
+    <div class="card"><h2>Rating distribution</h2><canvas id="rating"></canvas></div>
+    <div class="card"><h2>Reply status</h2><canvas id="response"></canvas></div>
+    <div class="card"><h2>Reviews over time</h2><canvas id="trend"></canvas></div>
+    <div class="card"><h2>Complaint categories</h2><canvas id="complaints"></canvas></div>
+    <div class="card"><h2>By branch</h2><div class="scroll"><table id="branch"></table></div></div>
+    <div class="card"><h2>Agent performance</h2><div class="scroll"><table id="agents"></table></div></div>
+    <div class="card"><h2>AWNIC vs competitors · avg rating</h2><canvas id="competitor"></canvas></div>
+    <div class="card" style="grid-column:1/-1"><h2>Pending replies</h2><div class="scroll"><table id="pending"></table></div></div>
+    <div class="card" style="grid-column:1/-1"><h2>Recent reviews</h2><div class="scroll"><table id="recent"></table></div></div>
+  </div>
+</main>
+<script>
+// ── CONFIG ───────────────────────────────────────────────────────────────
+const DATA_URL = "REPLACE_WITH_N8N/webhook/dashboard-data"; // e.g. http://VM_IP:5678/webhook/dashboard-data
+const REFRESH_MS = 120000; // auto-refresh every 2 minutes
+
+const charts = {};
+const num = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+const COL = {pos:'#2F8F5B', neg:'#C0392B', gold:'#C9A24B', navy:'#0B2A4A', navy2:'#123A63', grey:'#A9BCD4'};
+Chart.defaults.font.family = "'IBM Plex Sans', sans-serif";
+Chart.defaults.color = '#6B7686'; Chart.defaults.borderColor = '#EAEDF3';
+
+function donut(id, labels, data, colors){
+  if(charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), {
+    type:'doughnut',
+    data:{labels, datasets:[{data, backgroundColor:colors, borderWidth:2, borderColor:'#fff'}]},
+    options:{plugins:{legend:{position:'bottom'}},cutout:'62%'}
+  });
+}
+function bar(id, labels, data, color){
+  if(charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), {
+    type:'bar',
+    data:{labels, datasets:[{data, backgroundColor:color, borderRadius:5}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
+  });
+}
+function line(id, labels, data){
+  if(charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), {
+    type:'line',
+    data:{labels, datasets:[{data, borderColor:COL.navy2, backgroundColor:'rgba(18,58,99,.10)', fill:true, tension:.3, pointBackgroundColor:COL.gold}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
+  });
+}
+
+function render(payload){
+  const own = payload.own || [];
+  const comp = payload.competitor || [];
+  const total = own.length;
+  const ratings = own.map(r => num(r.Rating)).filter(n => n>0);
+  const avg = ratings.length ? (ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(2) : '—';
+  const pos = own.filter(r => (r['Review Status']||'').toLowerCase()==='positive').length;
+  const neg = own.filter(r => (r['Review Status']||'').toLowerCase()==='negative').length;
+  const posPct = total ? Math.round(pos/total*100) : 0;
+  const pending = own.filter(r => (r['Response Status']||'').toLowerCase().includes('pending')).length;
+  const posted  = own.filter(r => (r['Response Status']||'').toLowerCase().includes('posted')).length;
+
+  document.getElementById('kpis').innerHTML = [
+    ['Total reviews', total],
+    ['Average rating', avg + ' ★'],
+    ['Positive', posPct + '%'],
+    ['Pending replies', pending],
+  ].map(([l,v])=>`<div class="card kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+
+  donut('sentiment', ['Positive','Negative'], [pos, neg], [COL.pos, COL.neg]);
+
+  const dist = [1,2,3,4,5].map(s => own.filter(r => Math.round(num(r.Rating))===s).length);
+  bar('rating', ['1★','2★','3★','4★','5★'], dist, [COL.neg,COL.neg,COL.gold,COL.pos,COL.pos]);
+
+  donut('response', ['Posted reply','Pending reply'], [posted, pending], [COL.navy2, COL.gold]);
+
+  const byMonth = {};
+  own.forEach(r => { const k=(r.Year||'')+'-'+String(r.Month||'').padStart(2,'0'); if(r.Year) byMonth[k]=(byMonth[k]||0)+1; });
+  const mk = Object.keys(byMonth).sort();
+  line('trend', mk, mk.map(k=>byMonth[k]));
+
+  const cats = {};
+  own.forEach(r => { const c = r['Reason for Review (AI Summarized)']; if(c && c!=='N/A') cats[c]=(cats[c]||0)+1; });
+  const ck = Object.keys(cats).sort((a,b)=>cats[b]-cats[a]);
+  bar('complaints', ck.length?ck:['(no complaints)'], ck.length?ck.map(k=>cats[k]):[0], COL.neg);
+
+  const br = {};
+  own.forEach(r => { const b=r.Branch||'—'; (br[b]=br[b]||{n:0,sum:0,pend:0}); br[b].n++; br[b].sum+=num(r.Rating); if((r['Response Status']||'').toLowerCase().includes('pending')) br[b].pend++; });
+  document.getElementById('branch').innerHTML =
+    '<tr><th>Branch</th><th>Reviews</th><th>Avg ★</th><th>Pending</th></tr>' +
+    Object.entries(br).map(([b,v])=>`<tr><td>${esc(b)}</td><td>${v.n}</td><td>${(v.sum/v.n).toFixed(2)}</td><td>${v.pend}</td></tr>`).join('');
+
+  // Agent performance — parse "Canonical Name - Positive, Other - Negative"
+  const agents = {};
+  own.forEach(r => {
+    const raw = r['Agent Name'] || '';
+    if(!raw || raw.trim()==='N/A') return;
+    raw.split(',').forEach(part => {
+      const m = part.trim().match(/^(.*?)\s*-\s*(Positive|Negative)$/i);
+      if(!m) return;
+      const name = m[1].trim(); if(!name) return;
+      (agents[name] = agents[name] || {pos:0,neg:0});
+      if(m[2].toLowerCase()==='positive') agents[name].pos++; else agents[name].neg++;
+    });
+  });
+  document.getElementById('agents').innerHTML =
+    '<tr><th>Agent</th><th>Positive</th><th>Negative</th><th>Total</th></tr>' +
+    (Object.entries(agents).sort((a,b)=>(b[1].pos+b[1].neg)-(a[1].pos+a[1].neg))
+      .map(([n,v])=>`<tr><td>${esc(n)}</td><td><span class="pill pos">${v.pos}</span></td><td><span class="pill neg">${v.neg}</span></td><td>${v.pos+v.neg}</td></tr>`).join('')
+     || '<tr><td>No named agents yet</td></tr>');
+
+  const cbr = {};
+  comp.forEach(r => { const c=r['Competitor Name']||'—'; (cbr[c]=cbr[c]||{n:0,sum:0}); cbr[c].n++; cbr[c].sum+=num(r.Rating); });
+  const clabels = ['AWNIC', ...Object.keys(cbr)];
+  const cdata = [avg==='—'?0:num(avg), ...Object.values(cbr).map(v=>+(v.sum/v.n).toFixed(2))];
+  bar('competitor', clabels, cdata, [COL.gold, ...clabels.slice(1).map(()=>COL.grey)]);
+
+  document.getElementById('pending').innerHTML =
+    '<tr><th>Date</th><th>Branch</th><th>★</th><th>Reviewer</th><th>Review</th></tr>' +
+    own.filter(r=>(r['Response Status']||'').toLowerCase().includes('pending')).slice(0,50)
+       .map(r=>`<tr><td>${esc(r['Review Date'])}</td><td>${esc(r.Branch)}</td><td>${esc(r.Rating)}</td><td>${esc(r['Customer Name in Google'])}</td><td>${esc((r.Review||'').slice(0,120))}</td></tr>`).join('')
+    || '<tr><td>No pending replies 🎉</td></tr>';
+
+  document.getElementById('recent').innerHTML =
+    '<tr><th>Date</th><th>Branch</th><th>★</th><th>Sentiment</th><th>Status</th><th>Agent</th><th>Review</th></tr>' +
+    own.slice(-60).reverse().map(r=>{
+      const s=(r['Review Status']||'').toLowerCase(), st=(r['Response Status']||'').toLowerCase();
+      return `<tr><td>${esc(r['Review Date'])}</td><td>${esc(r.Branch)}</td><td>${esc(r.Rating)}</td>
+        <td><span class="pill ${s==='positive'?'pos':'neg'}">${esc(r['Review Status']||'—')}</span></td>
+        <td><span class="pill ${st.includes('posted')?'postd':'pend'}">${esc(r['Response Status']||'—')}</span></td>
+        <td>${esc(r['Agent Name']||'')}</td><td>${esc((r.Review||'').slice(0,140))}</td></tr>`;
+    }).join('');
+}
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+async function load(){
+  const st = document.getElementById('status');
+  try{
+    const res = await fetch(DATA_URL, {cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    render(data);
+    st.textContent = 'updated ' + new Date().toLocaleTimeString() + ' · ' + (data.own||[]).length + ' reviews';
+  }catch(e){ st.textContent = 'error: ' + e.message + ' (check DATA_URL / CORS)'; }
+}
+load();
+setInterval(load, REFRESH_MS);
+</script>
+</body>
+</html>
