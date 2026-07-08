@@ -1,0 +1,557 @@
+{
+  "name": "Google Review Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "new-review",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {}
+      },
+      "id": "node-webhook",
+      "name": "New Review Received",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        200,
+        400
+      ],
+      "webhookId": "review-webhook"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Lift the webhook POST body to the item root so every downstream\n// $json.<Field> expression resolves. Idempotent if already flat.\nreturn $input.all().map(item => ({ json: item.json.body ?? item.json }));"
+      },
+      "id": "node-normalize",
+      "name": "Normalize Webhook Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        410,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.mode }}",
+              "operation": "equal",
+              "value2": "own"
+            }
+          ]
+        }
+      },
+      "id": "node-if-mode",
+      "name": "Is Own Review?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        640,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.action }}",
+              "operation": "equal",
+              "value2": "mark_replied"
+            }
+          ]
+        }
+      },
+      "id": "node-if-action",
+      "name": "Reply Already Posted?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        820,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "worksheet",
+        "operation": "upsert",
+        "workbook": {
+          "__rl": true,
+          "value": "REPLACE_WITH_WORKBOOK_ID",
+          "mode": "list"
+        },
+        "worksheet": {
+          "__rl": true,
+          "value": "REPLACE_WITH_OWN_SHEET_ID",
+          "mode": "list"
+        },
+        "useRange": false,
+        "dataMode": "define",
+        "columnToMatchOn": "review_id",
+        "valueToMatchOn": "={{ $json.review_id }}",
+        "fieldsUi": {
+          "values": [
+            {
+              "column": "Response Status",
+              "fieldValue": "Posted Reply"
+            },
+            {
+              "column": "Agent Reply Time",
+              "fieldValue": "={{ $json['Agent Reply Time'] }}"
+            },
+            {
+              "column": "Owner Reply",
+              "fieldValue": "={{ $json['Owner Reply'] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-mark-replied",
+      "name": "Mark Review Replied",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        500
+      ],
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "REPLACE_MS365_CREDENTIAL_ID",
+          "name": "MS365 Account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.3-70b-versatile\",\n  \"temperature\": 0,\n  \"max_tokens\": 300,\n  \"response_format\": { \"type\": \"json_object\" },\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a review analysis engine for an insurance company. Your ONLY job is to analyze customer Google reviews and return a single, strictly valid JSON object. You must NEVER return any text, explanation, preamble, or markdown \\u2014 only raw JSON.\\n\\n---\\n\\nAGENT ROSTER (the official staff list \\u2014 EDIT this as your team changes; map any\\nstaff name mentioned in a review to the EXACT name listed here):\\n- Aswathy\\n- REPLACE_WITH_AGENT_NAME\\n- REPLACE_WITH_AGENT_NAME\\n(Add one line per agent, using the exact spelling you want shown in reports.)\\n\\n---\\n\\nCOMPLAINT CATEGORIES (use ONLY these exact strings for complaint_category):\\n- \\\"Staff Attitude\\\"\\n- \\\"Wait Time / Delays\\\"\\n- \\\"Claim Processing\\\"\\n- \\\"Policy Pricing\\\"\\n- \\\"Communication Failure\\\"\\n- \\\"Billing Issue\\\"\\n- \\\"Branch Experience\\\"\\n- \\\"Online / App Issue\\\"\\n- \\\"Total Loss Handling\\\"\\n- \\\"Documentation Issue\\\"\\n- \\\"Other\\\"\\n\\n---\\n\\nFIELD RULES \\u2014 read carefully before outputting:\\n\\n1. sentiment\\n   - \\\"POSITIVE\\\" if the review is 4\\u20135 stars OR the text is clearly satisfied\\n   - \\\"NEGATIVE\\\" if the review is 1\\u20133 stars OR the text contains a complaint\\n   - When stars and text conflict, trust the text over the star rating\\n\\n2. agent_name\\n   - Extract EVERY specific person's name EXPLICITLY written in the review text.\\n   - MATCH each extracted name to the closest entry in the AGENT ROSTER above.\\n     Handle misspellings, first-name-only, first+last, and nickname variants\\n     (e.g. \\\"Sara\\\" / \\\"Sarah A.\\\" -> \\\"Sarah Johnson\\\"). Output the EXACT roster name,\\n     NOT the spelling used in the review.\\n   - If a mentioned name does not clearly match any roster entry, EXCLUDE it\\n     (never invent an agent who is not on the roster).\\n   - For each matched roster name append \\\" - Positive\\\" or \\\" - Negative\\\" based on\\n     how the review speaks about THAT person (not the overall review).\\n   - One match -> \\\"Sarah Johnson - Positive\\\"\\n   - Multiple -> \\\"Sarah Johnson - Positive, Mike Chen - Negative\\\"\\n   - If nothing matches the roster (or no name is mentioned), output exactly: \\\"N/A\\\"\\n   - Do NOT extract job titles (\\\"the manager\\\", \\\"the agent\\\") \\u2014 only proper names\\n\\n3. complaint_category\\n   - For NEGATIVE reviews: select the single most relevant category from the list above\\n   - For POSITIVE reviews: output exactly \\\"N/A\\\"\\n\\n4. details_provided\\n   - true if the review is NEGATIVE AND explains a specific reason, event, or description of what went wrong\\n   - false if the review is NEGATIVE but vague (e.g. \\\"bad service\\\", \\\"terrible\\\", \\\"not happy\\\")\\n   - Always false for POSITIVE reviews\\n\\n5. reason_for_review\\n   - A 2\\u20134 word summary capturing the core topic of the review\\n   - Written in lowercase, no punctuation\\n   - Examples: \\\"satisfied with agent\\\", \\\"total loss delay\\\", \\\"billing dispute resolved\\\", \\\"long wait time\\\", \\\"poor claim communication\\\"\\n   - Do NOT start with \\\"the\\\", \\\"a\\\", or \\\"an\\\"\\n\\n6. review_status\\n   - Exactly \\\"Positive\\\" (capital P) for positive reviews\\n   - Exactly \\\"Negative\\\" (capital N) for negative reviews\\n\\n---\\n\\nOUTPUT FORMAT \\u2014 output ONLY this JSON, nothing else:\\n\\n{\\n  \\\"sentiment\\\": \\\"POSITIVE\\\" | \\\"NEGATIVE\\\",\\n  \\\"agent_name\\\": \\\"Name - Positive\\\" | \\\"Name1 - Positive, Name2 - Negative\\\" | \\\"N/A\\\",\\n  \\\"complaint_category\\\": \\\"Category Name\\\" | \\\"N/A\\\",\\n  \\\"details_provided\\\": true | false,\\n  \\\"reason_for_review\\\": \\\"2 to 4 word summary\\\",\\n  \\\"review_status\\\": \\\"Positive\\\" | \\\"Negative\\\"\\n}\\n\\n---\\n\\nEXAMPLES (assume the roster contains: Sarah Johnson, David Lee, Mike Chen):\\n\\nInput: stars=5, review=\\\"Sarah at the downtown branch was incredible. She sorted out my claim in one day and kept me updated throughout. Highly recommend!\\\"\\nOutput:\\n{\\n  \\\"sentiment\\\": \\\"POSITIVE\\\",\\n  \\\"agent_name\\\": \\\"Sarah Johnson - Positive\\\",\\n  \\\"complaint_category\\\": \\\"N/A\\\",\\n  \\\"details_provided\\\": false,\\n  \\\"reason_for_review\\\": \\\"excellent claim service\\\",\\n  \\\"review_status\\\": \\\"Positive\\\"\\n}\\n\\nInput: stars=1, review=\\\"My total loss claim has been sitting for 3 months with zero updates. I've called 6 times and nobody can give me a straight answer. Absolutely unacceptable.\\\"\\nOutput:\\n{\\n  \\\"sentiment\\\": \\\"NEGATIVE\\\",\\n  \\\"agent_name\\\": \\\"N/A\\\",\\n  \\\"complaint_category\\\": \\\"Total Loss Handling\\\",\\n  \\\"details_provided\\\": true,\\n  \\\"reason_for_review\\\": \\\"total loss claim delay\\\",\\n  \\\"review_status\\\": \\\"Negative\\\"\\n}\\n\\nInput: stars=2, review=\\\"Very disappointed with this company.\\\"\\nOutput:\\n{\\n  \\\"sentiment\\\": \\\"NEGATIVE\\\",\\n  \\\"agent_name\\\": \\\"N/A\\\",\\n  \\\"complaint_category\\\": \\\"Other\\\",\\n  \\\"details_provided\\\": false,\\n  \\\"reason_for_review\\\": \\\"general dissatisfaction\\\",\\n  \\\"review_status\\\": \\\"Negative\\\"\\n}\\n\\nInput: stars=4, review=\\\"Good experience overall. The branch manager David was helpful but the wait was quite long.\\\"\\nOutput:\\n{\\n  \\\"sentiment\\\": \\\"POSITIVE\\\",\\n  \\\"agent_name\\\": \\\"David Lee - Positive\\\",\\n  \\\"complaint_category\\\": \\\"N/A\\\",\\n  \\\"details_provided\\\": false,\\n  \\\"reason_for_review\\\": \\\"satisfied with agent\\\",\\n  \\\"review_status\\\": \\\"Positive\\\"\\n}\\n\\nInput: stars=3, review=\\\"Sarah in claims was wonderful and really helped me, but Mike at the front desk was dismissive and rude.\\\"\\nOutput:\\n{\\n  \\\"sentiment\\\": \\\"NEGATIVE\\\",\\n  \\\"agent_name\\\": \\\"Sarah Johnson - Positive, Mike Chen - Negative\\\",\\n  \\\"complaint_category\\\": \\\"Staff Attitude\\\",\\n  \\\"details_provided\\\": true,\\n  \\\"reason_for_review\\\": \\\"mixed staff experience\\\",\\n  \\\"review_status\\\": \\\"Negative\\\"\\n}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify(\"Stars: \" + $json.Rating + \"\\nReview: \" + $json.Review) }}\n    }\n  ]\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "node-groq",
+      "name": "Analyze with Groq",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        240
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_GROQ_CREDENTIAL_ID",
+          "name": "Groq API"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 20000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Groq output and build the full Excel row + reply draft.\n// toExcelDateTime() accepts \"DD/MM/YYYY[ HH:MM[:SS]]\" (what the scraper sends)\n// OR an ISO string, and emits locale-safe \"YYYY-MM-DD HH:MM:SS\" for Excel.\nfunction toExcelDateTime(val) {\n  if (!val) return '';\n  const s = String(val).replace(/^'/, '').trim();\n  const m = s.match(/^(\\d{2})\\/(\\d{2})\\/(\\d{4})(?:\\s+(\\d{2}):(\\d{2})(?::(\\d{2}))?)?$/);\n  if (m) {\n    const dd = m[1], mm = m[2], yyyy = m[3], hh = m[4] || '00', mi = m[5] || '00', ss = m[6] || '00';\n    return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;\n  }\n  const d = new Date(s);\n  if (isNaN(d.getTime())) return s;\n  const p = (n) => String(n).padStart(2, '0');\n  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;\n}\n\nconst groqResponse = $input.item.json?.choices?.[0]?.message?.content ?? '';\nlet llm;\ntry {\n  llm = JSON.parse(groqResponse);\n} catch(e) {\n  llm = { sentiment:'NEGATIVE', agent_name:'N/A', complaint_category:'Other',\n          details_provided:false, reason_for_review:'parse error', review_status:'Negative' };\n}\n\nconst original = $('New Review Received').first().json.body ?? $('New Review Received').first().json;\nconst customerName = original['Customer Name in Google'] || 'Valued Customer';\n\n// Positive reply rotation by day of month\nconst POSITIVE_REPLIES = [\n  \"Thank you for your kind feedback. We're delighted to know you had a positive experience with us. Your satisfaction is our top priority, and we truly appreciate your support.\",\n  \"We truly appreciate your wonderful review. Your satisfaction is our top priority, and we're pleased to hear that we met your expectations.\",\n  \"Thank you for your positive feedback. Your satisfaction is our top priority, and we're glad we could provide you with a great experience.\"\n];\nconst day = parseInt(original.Day || '1');\nlet posIdx; if (day <= 10) posIdx = 0; else if (day <= 20) posIdx = 1; else posIdx = 2;\n\n// Negative reply drafts (plain text; no markdown links)\nconst SCENARIO_1 = `Dear ${customerName},\\n\\nThank you for taking the time to share your feedback. To help us look into this and support you better, could you please share your claim number and contact details with us?\\n\\nYou can reach us directly on:\\nPhone: +971 600 544 040\\nEmail: customercare@awnic.com\\nWebsite: www.awnic.com\\n\\nOur team will take this up on priority and ensure it is reviewed with the attention it deserves. Thank you!`;\nconst SCENARIO_2 = `Dear ${customerName},\\n\\nThank you for speaking with us and sharing your experience. We truly regret that your recent experience did not meet the standards we aim to deliver. Your feedback has been taken seriously and shared with the relevant team for immediate review.\\n\\nPlease be assured that your case is being closely followed, and we are working to address the concerns raised and resolve this at the earliest.\\n\\nWe appreciate your patience and the opportunity to make this right. Thank you!`;\n\nlet selectedReply;\nif (llm.sentiment === 'POSITIVE') selectedReply = POSITIVE_REPLIES[posIdx];\nelse selectedReply = llm.details_provided === true ? SCENARIO_2 : SCENARIO_1;\n\nreturn {\n  json: {\n    review_id: original.review_id,\n    'Review Date': toExcelDateTime(original['Review Date']),\n    Rating: original.Rating,\n    Review: original.Review,\n    'Customer Name in Google': customerName,\n    Branch: original.Branch,\n    Day: original.Day,\n    Month: original.Month,\n    Year: original.Year,\n\n    'Reason for Review (AI Summarized)': llm.complaint_category || 'N/A',\n    'Agent Name': llm.agent_name || 'N/A',\n    'Review Status': llm.review_status || '',\n\n    sentiment: llm.sentiment,\n    complaint_category: llm.complaint_category || 'Other',\n    details_provided: llm.details_provided === true,\n\n    selected_reply: selectedReply,\n    'Suggested Reply': selectedReply,\n    'Response Status': (original.owner_responded ? 'Posted Reply' : 'Pending Reply'),\n\n    'Latest Action Taken To Customer': '',\n    'Latest Action Date - Customer': '',\n    'Latest Action Date - Internal': '',\n    'Complaint Resolution Days': '',\n\n    action: original.action,\n    previous_rating: original.previous_rating,\n    'Logged At': toExcelDateTime(original['Logged At']),\n    'Customer Last Update': toExcelDateTime(original['Customer Last Update']),\n    'Owner Reply': original['Owner Reply'] || '',\n    'Agent Reply Time': toExcelDateTime(original['Agent Reply Time']),\n    'Review Link': original['Review Link'] || ''\n  }\n};",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "node-parse",
+      "name": "Parse and Build Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $('Parse and Build Row').first().json.sentiment }}",
+              "operation": "equal",
+              "value2": "POSITIVE"
+            }
+          ]
+        }
+      },
+      "id": "node-if-sentiment",
+      "name": "Positive or Negative?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1780,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "subject": "=[Reply Needed] {{ $('Parse and Build Row').first().json.Rating }}★ Positive Review — {{ $('Parse and Build Row').first().json.Branch }} — {{ $('Parse and Build Row').first().json['Review Date'] }}",
+        "bodyContent": "=<h2 style=\"color:#34a853\">Reply needed within the hour — Positive review</h2><table style=\"border-collapse:collapse;width:100%;font-family:sans-serif;font-size:14px\"><tr><td style=\"padding:8px;border:1px solid #ddd;background:#f8f8f8\"><strong>Branch</strong></td><td style=\"padding:8px;border:1px solid #ddd\">{{ $('Parse and Build Row').first().json.Branch }}</td></tr><tr><td style=\"padding:8px;border:1px solid #ddd;background:#f8f8f8\"><strong>Date</strong></td><td style=\"padding:8px;border:1px solid #ddd\">{{ $('Parse and Build Row').first().json['Review Date'] }}</td></tr><tr><td style=\"padding:8px;border:1px solid #ddd;background:#f8f8f8\"><strong>Rating</strong></td><td style=\"padding:8px;border:1px solid #ddd\">{{ $('Parse and Build Row').first().json.Rating }} / 5</td></tr><tr><td style=\"padding:8px;border:1px solid #ddd;background:#f8f8f8\"><strong>Reviewer</strong></td><td style=\"padding:8px;border:1px solid #ddd\">{{ $('Parse and Build Row').first().json['Customer Name in Google'] }}</td></tr><tr><td style=\"padding:8px;border:1px solid #ddd;background:#f8f8f8\"><strong>Agent named</strong></td><td style=\"padding:8px;border:1px solid #ddd\">{{ $('Parse and Build Row').first().json['Agent Name'] }}</td></tr></table><h3>Review text</h3><blockquote style=\"background:#f0f7ff;border-left:4px solid #1a73e8;padding:12px;margin:12px 0\">{{ $('Parse and Build Row').first().json.Review }}</blockquote><h3 style=\"color:#34a853\">✅ Suggested reply — copy and paste this</h3><blockquote style=\"background:#f0fff0;border-left:4px solid #34a853;padding:12px;margin:12px 0;font-size:15px;white-space:pre-line\">{{ $('Parse and Build Row').first().json.selected_reply }}</blockquote><p><a href=\"{{ $('Parse and Build Row').first().json['Review Link'] }}\" style=\"background:#1a73e8;color:white;padding:12px 24px;text-decoration:none;border-radius:4px;display:inline-block\">🔗 Open this branch's Google reviews</a></p>",
+        "bodyContentType": "html",
+        "toRecipients": "REPLACE_WITH_RESPONDER_EMAIL@yourcompany.com",
+        "additionalFields": {}
+      },
+      "id": "node-outlook-positive",
+      "name": "Notify - Reply Needed",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        260
+      ],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "REPLACE_MS365_CREDENTIAL_ID",
+          "name": "MS365 Account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "subject": "=[URGENT — Reply Needed] {{ $('Parse and Build Row').first().json.Rating }}★ Negative Review — {{ $('Parse and Build Row').first().json.complaint_category }} — {{ $('Parse and Build Row').first().json.Branch }}",
+        "bodyContent": "=<h2 style=\"color:#ea4335\">⚠️ URGENT — Negative review needs reply within the hour</h2><table style=\"border-collapse:collapse;width:100%;font-family:sans-serif;font-size:14px\"><tr><td style=\"padding:8px;border:1px solid #ddd;background:#fff0f0\"><strong>Branch</strong></td><td style=\"padding:8px;border:1px solid #ddd\">{{ $('Parse and Build Row').first().json.Branch }}</td></tr><tr><td style=\"padding:8px;border:1px solid #ddd;background:#fff0f0\"><strong>Date</strong></td><td style=\"padding:8px;border:1px solid #ddd\">{{ $('Parse and Build Row').first().json['Review Date'] }}</td></tr><tr><td style=\"padding:8px;border:1px solid #ddd;background:#fff0f0\"><strong>Rating</strong></td><td style=\"padding:8px;border:1px solid #ddd\">{{ $('Parse and Build Row').first().json.Rating }} / 5 stars</td></tr><tr><td style=\"padding:8px;border:1px solid #ddd;background:#fff0f0\"><strong>Reviewer</strong></td><td style=\"padding:8px;border:1px solid #ddd\">{{ $('Parse and Build Row').first().json['Customer Name in Google'] }}</td></tr><tr><td style=\"padding:8px;border:1px solid #ddd;background:#fff0f0\"><strong>Category</strong></td><td style=\"padding:8px;border:1px solid #ddd\"><strong>{{ $('Parse and Build Row').first().json.complaint_category }}</strong></td></tr><tr><td style=\"padding:8px;border:1px solid #ddd;background:#fff0f0\"><strong>Agent named</strong></td><td style=\"padding:8px;border:1px solid #ddd\">{{ $('Parse and Build Row').first().json['Agent Name'] }}</td></tr></table><h3>Review text</h3><blockquote style=\"background:#fff0f0;border-left:4px solid #ea4335;padding:12px;margin:12px 0\">{{ $('Parse and Build Row').first().json.Review }}</blockquote><h3 style=\"color:#ea4335\">📝 Suggested apology — copy and paste this</h3><blockquote style=\"background:#fffbf0;border-left:4px solid #f9ab00;padding:12px;margin:12px 0;font-size:15px;white-space:pre-line\">{{ $('Parse and Build Row').first().json.selected_reply }}</blockquote><p><a href=\"{{ $('Parse and Build Row').first().json['Review Link'] }}\" style=\"background:#1a73e8;color:white;padding:12px 24px;text-decoration:none;border-radius:4px;display:inline-block\">🔗 Open this branch's Google reviews</a></p>",
+        "bodyContentType": "html",
+        "toRecipients": "REPLACE_WITH_SUPPORT_EMAIL@yourcompany.com",
+        "additionalFields": {
+          "importance": "high"
+        }
+      },
+      "id": "node-outlook-negative",
+      "name": "Notify - Urgent Reply Needed",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        440
+      ],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "REPLACE_MS365_CREDENTIAL_ID",
+          "name": "MS365 Account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build competitor row — no Groq, raw passthrough\nconst original = $input.item.json;\nconst now = new Date();\nconst dd = String(now.getDate()).padStart(2, '0');\nconst mm = String(now.getMonth() + 1).padStart(2, '0');\nconst yyyy = now.getFullYear();\n\nreturn {\n  json: {\n    'Date Scraped': `${dd}/${mm}/${yyyy}`,\n    'Review Date': original['Review Date'],\n    'Competitor Name': original.competitor_name || original.Branch || 'Unknown',\n    'Branch': original.Branch || '',\n    'Rating': original.Rating,\n    'Review': original.Review,\n    'Reviewer Name': original['Customer Name in Google'],\n    'Day': original.Day,\n    'Month': original.Month,\n    'Year': original.Year\n  }\n};",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "node-competitor-shape",
+      "name": "Shape Competitor Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "operation": "append",
+        "workbook": {
+          "__rl": true,
+          "value": "REPLACE_WITH_WORKBOOK_ID",
+          "mode": "list"
+        },
+        "worksheet": {
+          "__rl": true,
+          "value": "REPLACE_WITH_COMPETITOR_SHEET_ID",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "CompetitorReviewsTable",
+          "mode": "list"
+        },
+        "dataMode": "autoMap",
+        "options": {}
+      },
+      "id": "node-excel-competitor",
+      "name": "Log Competitor Review",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        600
+      ],
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "REPLACE_MS365_CREDENTIAL_ID",
+          "name": "MS365 Account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "resource": "worksheet",
+        "operation": "upsert",
+        "workbook": {
+          "__rl": true,
+          "value": "REPLACE_WITH_WORKBOOK_ID",
+          "mode": "list"
+        },
+        "worksheet": {
+          "__rl": true,
+          "value": "REPLACE_WITH_OWN_SHEET_ID",
+          "mode": "list"
+        },
+        "useRange": false,
+        "dataMode": "autoMap",
+        "columnToMatchOn": "review_id",
+        "options": {}
+      },
+      "id": "node-log-update-own",
+      "name": "Log/Update Own Review",
+      "type": "n8n-nodes-base.microsoftExcel",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        240
+      ],
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "REPLACE_MS365_CREDENTIAL_ID",
+          "name": "MS365 Account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $('Parse and Build Row').first().json.action }}",
+              "operation": "equal",
+              "value2": "amended"
+            }
+          ]
+        }
+      },
+      "id": "node-if-amended",
+      "name": "Amended?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "subject": "=[Review Amended] {{ $('Parse and Build Row').first().json['Customer Name in Google'] }} changed their review — now {{ $('Parse and Build Row').first().json.Rating }}★ (was {{ $('Parse and Build Row').first().json.previous_rating }}★) — {{ $('Parse and Build Row').first().json.Branch }}",
+        "bodyContent": "=<h2 style=\"color:#f9ab00\">✏️ A customer amended their review</h2><table style=\"border-collapse:collapse;width:100%;font-family:sans-serif;font-size:14px\"><tr><td style=\"padding:8px;border:1px solid #ddd;background:#fffbf0\"><strong>Branch</strong></td><td style=\"padding:8px;border:1px solid #ddd\">{{ $('Parse and Build Row').first().json.Branch }}</td></tr><tr><td style=\"padding:8px;border:1px solid #ddd;background:#fffbf0\"><strong>Rating change</strong></td><td style=\"padding:8px;border:1px solid #ddd\"><strong>{{ $('Parse and Build Row').first().json.previous_rating }}★ → {{ $('Parse and Build Row').first().json.Rating }}★</strong></td></tr><tr><td style=\"padding:8px;border:1px solid #ddd;background:#fffbf0\"><strong>New sentiment</strong></td><td style=\"padding:8px;border:1px solid #ddd\">{{ $('Parse and Build Row').first().json.sentiment }}</td></tr><tr><td style=\"padding:8px;border:1px solid #ddd;background:#fffbf0\"><strong>Reviewer</strong></td><td style=\"padding:8px;border:1px solid #ddd\">{{ $('Parse and Build Row').first().json['Customer Name in Google'] }}</td></tr><tr><td style=\"padding:8px;border:1px solid #ddd;background:#fffbf0\"><strong>Amended at</strong></td><td style=\"padding:8px;border:1px solid #ddd\">{{ $('Parse and Build Row').first().json['Customer Last Update'] }}</td></tr></table><h3>Updated review text</h3><blockquote style=\"background:#fffbf0;border-left:4px solid #f9ab00;padding:12px;margin:12px 0\">{{ $('Parse and Build Row').first().json.Review }}</blockquote><h3 style=\"color:#34a853\">✅ Suggested reply</h3><blockquote style=\"background:#f0fff0;border-left:4px solid #34a853;padding:12px;margin:12px 0;white-space:pre-line\">{{ $('Parse and Build Row').first().json.selected_reply }}</blockquote><p><a href=\"{{ $('Parse and Build Row').first().json['Review Link'] }}\" style=\"background:#1a73e8;color:white;padding:12px 24px;text-decoration:none;border-radius:4px;display:inline-block\">🔗 Open this branch's Google reviews</a></p><p style=\"color:#666;font-size:13px\">The sheet row was updated in place and Response Status reset to Pending Reply.</p>",
+        "bodyContentType": "html",
+        "toRecipients": "REPLACE_WITH_RESPONDER_EMAIL@yourcompany.com",
+        "additionalFields": {
+          "importance": "high"
+        }
+      },
+      "id": "node-outlook-amended",
+      "name": "Notify - Review Amended",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        1780,
+        120
+      ],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "REPLACE_MS365_CREDENTIAL_ID",
+          "name": "MS365 Account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "New Review Received": {
+      "main": [
+        [
+          {
+            "node": "Normalize Webhook Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Own Review?": {
+      "main": [
+        [
+          {
+            "node": "Reply Already Posted?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Shape Competitor Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze with Groq": {
+      "main": [
+        [
+          {
+            "node": "Parse and Build Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse and Build Row": {
+      "main": [
+        [
+          {
+            "node": "Log/Update Own Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Positive or Negative?": {
+      "main": [
+        [
+          {
+            "node": "Notify - Reply Needed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify - Urgent Reply Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape Competitor Row": {
+      "main": [
+        [
+          {
+            "node": "Log Competitor Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Webhook Body": {
+      "main": [
+        [
+          {
+            "node": "Is Own Review?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reply Already Posted?": {
+      "main": [
+        [
+          {
+            "node": "Mark Review Replied",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Analyze with Groq",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log/Update Own Review": {
+      "main": [
+        [
+          {
+            "node": "Amended?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Amended?": {
+      "main": [
+        [
+          {
+            "node": "Notify - Review Amended",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Positive or Negative?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1.0.0",
+  "meta": {
+    "instanceId": "google-reviews-final"
+  },
+  "tags": []
+}
