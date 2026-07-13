@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #EEF1F6; }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: #C3CAD6; border-radius: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  @keyframes awnicPulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+</style>
+</helmet>
+<div ref="{{ rootRef }}" style="min-height: 100vh; font-family: 'IBM Plex Sans','IBM Plex Sans Arabic',-apple-system,sans-serif; color: #0B2A4A; background: #EEF1F6; position: relative">
+
+  <!-- ============ STICKY HEADER STACK ============ -->
+  <div style="position:sticky;top:0;z-index:40;background:#fff;">
+  <!-- ============ TOP BAR ============ -->
+  <div style="background:linear-gradient(100deg,#08213E 0%,#0B2A4A 55%,#123A63 100%);color:#fff;padding:16px 26px;display:flex;align-items:center;gap:18px;box-shadow:0 2px 14px rgba(8,22,44,.25);">
+    
+    <div style="min-width:0;">
+      <div style="font-size:18px;font-weight:600;letter-spacing:.2px;line-height:1.1;">Al Wathba Insurance · Google Reviews Dashboard</div>
+      <div style="font-size:12.5px;color:#A9BCD4;margin-top:2px;">Google Reviews Analytics — Al Wathba National Insurance Company</div>
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:22px;">
+      <div style="text-align:right;">
+        
+        <div style="font-size:13px;color:#E4CE93;font-weight:500;display:flex;align-items:center;gap:6px;justify-content:flex-end;"><span style="width:8px;height:8px;border-radius:50%;background:#3FD37F;display:inline-block;animation:awnicPulse 1.6s infinite;"></span>Synced · 06 Jul 2026, 09:42</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ GLOBAL FILTER BAR ============ -->
+  
+
+  <!-- ============ SECTION TABS ============ -->
+  <div style="background:#fff;border-bottom:1px solid #E2E7F0;padding:12px 26px;display:flex;flex-wrap:wrap;align-items:center;gap:18px;box-shadow:0 1px 6px rgba(11,42,74,.04);">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:11px;font-weight:600;color:#6B7686;text-transform:uppercase;letter-spacing:.6px;">Date</span>
+      <div style="display:flex;background:#EEF1F6;border-radius:8px;padding:3px;gap:2px;">
+        <sc-for list="{{ dateRanges }}" as="dr" hint-placeholder-count="4">
+          <button onClick="{{ dr.on }}" style="border:none;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:500;padding:5px 11px;border-radius:6px;background:{{ dr.bg }};color:{{ dr.fg }};">{{ dr.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:11px;font-weight:600;color:#6B7686;text-transform:uppercase;letter-spacing:.6px;">Branch</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <sc-for list="{{ branchChips }}" as="b" hint-placeholder-count="5">
+          <button onClick="{{ b.on }}" style="border:1px solid {{ b.border }};cursor:pointer;font-family:inherit;font-size:12px;font-weight:500;padding:4px 10px;border-radius:20px;background:{{ b.bg }};color:{{ b.fg }};">{{ b.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:11px;font-weight:600;color:#6B7686;text-transform:uppercase;letter-spacing:.6px;">Range</span>
+      <input type="date" value="{{ dateFrom }}" onChange="{{ onDateFrom }}" style="font-family:inherit;font-size:12.5px;border:1px solid #D8DEE9;border-radius:8px;padding:5px 9px;color:#0B2A4A;background:#fff;cursor:pointer;">
+      <span style="font-size:12px;color:#8A93A3;">→</span>
+      <input type="date" value="{{ dateTo }}" onChange="{{ onDateTo }}" style="font-family:inherit;font-size:12.5px;border:1px solid #D8DEE9;border-radius:8px;padding:5px 9px;color:#0B2A4A;background:#fff;cursor:pointer;">
+      <span style="font-size:11.5px;font-weight:600;color:{{ rangeColor }};white-space:nowrap;">{{ rangeLabel }}</span>
+    </div>
+    <button onClick="{{ resetFilters }}" style="margin-left:auto;border:1px solid #D8DEE9;background:#fff;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;color:#0B2A4A;padding:7px 14px;border-radius:8px;display:flex;align-items:center;gap:6px;">↺ Reset filters</button>
+  </div><div style="background:#fff;border-bottom:1px solid #E2E7F0;padding:0 26px;display:flex;gap:4px;overflow-x:auto;">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+      <button onClick="{{ t.on }}" style="border:none;border-bottom:3px solid {{ t.border }};cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:{{ t.weight }};padding:14px 16px;background:transparent;color:{{ t.fg }};white-space:nowrap;">{{ t.label }}</button>
+    </sc-for>
+  </div>
+  </div>
+
+  <div style="max-width:1440px;margin:0 auto;padding:22px 26px 60px;">
+
+  <!-- ==================================================== OVERVIEW ==================================================== -->
+  <sc-if value="{{ isOverview }}" hint-placeholder-val="{{ true }}">
+  <div>
+    <!-- KPI CARDS -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:14px;margin-bottom:20px;">
+      <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="7">
+        <div style="background:#fff;border:1px solid #E7EAF0;border-radius:14px;padding:16px 16px 15px;box-shadow:0 2px 10px rgba(11,42,74,.05);position:relative;overflow:hidden;">
+          <div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:{{ k.accent }};"></div>
+          <div style="font-size:11px;font-weight:600;color:#6B7686;text-transform:uppercase;letter-spacing:.5px;line-height:1.3;min-height:28px;">{{ k.label }}</div>
+          <div style="display:flex;align-items:baseline;gap:7px;margin-top:8px;">
+            <div style="font-size:27px;font-weight:700;color:#0B2A4A;line-height:1;">{{ k.value }}</div>
+            <div style="font-size:12.5px;font-weight:600;color:{{ k.trendColor }};">{{ k.trend }}</div>
+          </div>
+          <div style="font-size:11.5px;color:#8A93A3;margin-top:6px;">{{ k.sub }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- VOLUME OVER TIME -->
+    <div style="background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:18px 20px;box-shadow:0 2px 10px rgba(11,42,74,.05);margin-bottom:16px;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+        <div>
+          <div style="font-size:15px;font-weight:600;">Review Volume Over Time</div>
+          <div style="font-size:12px;color:#8A93A3;margin-top:2px;">Own reviews per month — positive vs negative, with 30-day rolling average rating overlay</div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:center;font-size:11.5px;color:#6B7686;">
+          <span style="display:flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:{{ volPosColor }};display:inline-block;"></span>Positive</span>
+          <span style="display:flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:#C0392B;display:inline-block;"></span>Negative</span>
+          <span style="display:flex;align-items:center;gap:5px;"><span style="width:16px;height:3px;border-radius:2px;background:#C9A24B;display:inline-block;"></span>Avg rating</span>
+        </div>
+      </div>
+      <div style="position:relative;height:300px;"><canvas data-chart="volume"></canvas></div>
+    </div>
+
+    <!-- SENTIMENT + STAR ROW -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+      <!-- sentiment -->
+      <div style="background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:18px 20px;box-shadow:0 2px 10px rgba(11,42,74,.05);">
+        <div style="font-size:15px;font-weight:600;">Sentiment Breakdown</div>
+        <div style="font-size:12px;color:#8A93A3;margin-top:2px;">Positive vs negative share, and 12-month ratio trend</div>
+        <div style="display:flex;gap:14px;align-items:center;margin-top:12px;">
+          <div style="position:relative;width:172px;height:172px;flex-shrink:0;">
+            <canvas data-chart="sentDonut"></canvas>
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;">
+              <div style="font-size:30px;font-weight:700;color:#2F8F5B;line-height:1;">68%</div>
+              <div style="font-size:11px;color:#8A93A3;margin-top:3px;letter-spacing:.4px;">POSITIVE</div>
+            </div>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:1px dashed #EAEDF3;"><span style="color:#2F8F5B;font-weight:600;">● Positive</span><span style="font-weight:600;">873 · 68%</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;"><span style="color:#C0392B;font-weight:600;">● Negative</span><span style="font-weight:600;">411 · 32%</span></div>
+            <div style="font-size:11.5px;color:#8A93A3;margin-top:6px;line-height:1.5;">Positive share up <b style="color:#2F8F5B;">+3.1pts</b> vs the trailing quarter. Best month was May at 75%.</div>
+          </div>
+        </div>
+        <div style="position:relative;height:130px;margin-top:10px;border-top:1px solid #F0F2F6;padding-top:8px;"><canvas data-chart="sentTrend"></canvas></div>
+      </div>
+      <!-- star -->
+      <div style="background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:18px 20px;box-shadow:0 2px 10px rgba(11,42,74,.05);">
+        <div style="font-size:15px;font-weight:600;">Star Rating Distribution</div>
+        <div style="font-size:12px;color:#8A93A3;margin-top:2px;">Overall counts, and per-branch comparison</div>
+        <div style="position:relative;height:150px;margin-top:12px;"><canvas data-chart="starDist"></canvas></div>
+        <div style="font-size:11.5px;font-weight:600;color:#6B7686;margin-top:12px;margin-bottom:4px;">Per branch (stacked)</div>
+        <div style="position:relative;height:132px;"><canvas data-chart="starBranch"></canvas></div>
+      </div>
+    </div>
+
+    <!-- COMPLAINT CATEGORIES -->
+    <div style="background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:18px 20px;box-shadow:0 2px 10px rgba(11,42,74,.05);margin-bottom:16px;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div style="font-size:15px;font-weight:600;">Complaint Category Breakdown</div>
+          <div style="font-size:12px;color:#8A93A3;margin-top:2px;">Negative reviews only — ranked by frequency, with month-over-month trend</div>
+        </div>
+      </div>
+      <div style="margin-top:14px;display:flex;flex-direction:column;gap:9px;">
+        <sc-for list="{{ complaintCats }}" as="c" hint-placeholder-count="9">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:150px;font-size:12.5px;font-weight:500;text-align:right;flex-shrink:0;">{{ c.label }}</div>
+            <div style="flex:1;background:#F0F2F6;border-radius:6px;height:22px;position:relative;overflow:hidden;">
+              <div style="position:absolute;left:0;top:0;bottom:0;width:{{ c.pct }}%;background:linear-gradient(90deg,#123A63,#C0392B);border-radius:6px;"></div>
+            </div>
+            <div style="width:44px;font-size:12.5px;font-weight:700;text-align:right;">{{ c.value }}</div>
+            <div style="width:64px;font-size:12px;font-weight:600;color:{{ c.trendColor }};text-align:right;">{{ c.trend }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- RECENT REVIEWS FEED -->
+    <div style="background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:18px 20px;box-shadow:0 2px 10px rgba(11,42,74,.05);">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px;">
+        <div>
+          <div style="font-size:15px;font-weight:600;">Recent Reviews</div>
+          <div style="font-size:12px;color:#8A93A3;margin-top:2px;">Latest own reviews — bilingual, with AI summary, suggested reply &amp; response status</div>
+        </div>
+        <div style="display:flex;background:#EEF1F6;border-radius:8px;padding:3px;gap:2px;">
+          <sc-for list="{{ statusSegs }}" as="s" hint-placeholder-count="4">
+            <button onClick="{{ s.on }}" style="border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:500;padding:5px 11px;border-radius:6px;background:{{ s.bg }};color:{{ s.fg }};">{{ s.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+      <div style="max-height:560px;overflow-y:auto;display:flex;flex-direction:column;gap:11px;padding-right:4px;margin-top:10px;">
+        <sc-for list="{{ feedReviews }}" as="r" hint-placeholder-count="8">
+          <div style="border:1px solid #EAEDF3;border-radius:12px;padding:14px 15px;background:#FCFDFE;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <div style="width:34px;height:34px;border-radius:50%;background:{{ r.avatarBg }};color:#fff;font-weight:600;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">{{ r.initials }}</div>
+              <div style="min-width:0;">
+                <div style="font-size:13.5px;font-weight:600;" dir="auto">{{ r.name }}</div>
+                <div style="font-size:11.5px;color:#8A93A3;">{{ r.meta }}</div>
+              </div>
+              <div style="font-size:14px;color:#C9A24B;letter-spacing:1px;margin-left:2px;">{{ r.stars }}</div>
+              <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+                <span style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;background:{{ r.statusBg }};color:{{ r.statusFg }};white-space:nowrap;">{{ r.statusLabel }}</span>
+              </div>
+            </div>
+            <div style="font-size:13px;line-height:1.55;color:#3A4453;margin-top:10px;" dir="auto">{{ r.review }}</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">
+              <div style="flex:1;min-width:200px;background:#F3F6FB;border-radius:9px;padding:9px 11px;">
+                <div style="font-size:10px;font-weight:700;color:#123A63;text-transform:uppercase;letter-spacing:.6px;">AI Summary · Reason</div>
+                <div style="font-size:12px;color:#42506A;margin-top:3px;line-height:1.45;">{{ r.aiReason }}</div>
+              </div>
+              <div style="flex:1;min-width:200px;background:#FBF7EE;border-radius:9px;padding:9px 11px;border:1px solid #F0E6CF;">
+                <div style="font-size:10px;font-weight:700;color:#9A7B23;text-transform:uppercase;letter-spacing:.6px;">Suggested Reply</div>
+                <div style="font-size:12px;color:#5C4E2E;margin-top:3px;line-height:1.45;" dir="auto">{{ r.suggested }}</div>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ==================================================== ANALYTICS ==================================================== -->
+  <sc-if value="{{ isAnalytics }}" hint-placeholder-val="{{ true }}">
+  <div>
+    <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Data Categorization Analytics</div>
+    <div style="font-size:12.5px;color:#8A93A3;margin-bottom:16px;">Deep-dive on when, why and how customers are reviewing Al Wathba Insurance.</div>
+
+    <!-- HEATMAP -->
+    <div style="background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:18px 20px;box-shadow:0 2px 10px rgba(11,42,74,.05);margin-bottom:16px;">
+      <div style="font-size:15px;font-weight:600;">Review Volume — Day × Hour Heatmap</div>
+      <div style="font-size:12px;color:#8A93A3;margin-top:2px;margin-bottom:14px;">Darker cells = more reviews posted. Peaks cluster on weekday evenings.</div>
+      <div style="display:flex;gap:4px;margin-bottom:4px;padding-left:42px;">
+        <sc-for list="{{ heat.hours }}" as="h" hint-placeholder-count="18">
+          <div style="flex:1;text-align:center;font-size:9.5px;color:#9AA3B2;">{{ h }}</div>
+        </sc-for>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <sc-for list="{{ heat.rows }}" as="row" hint-placeholder-count="7">
+          <div style="display:flex;gap:4px;align-items:center;">
+            <div style="width:38px;font-size:11px;font-weight:600;color:#6B7686;flex-shrink:0;">{{ row.day }}</div>
+            <sc-for list="{{ row.cells }}" as="c" hint-placeholder-count="18">
+              <div title="{{ c.label }}" style="flex:1;height:20px;border-radius:3px;background:{{ c.bg }};"></div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:11px;color:#8A93A3;">Fewer<div style="display:flex;gap:3px;"><span style="width:16px;height:11px;border-radius:2px;background:rgba(11,42,74,.10);"></span><span style="width:16px;height:11px;border-radius:2px;background:rgba(11,42,74,.35);"></span><span style="width:16px;height:11px;border-radius:2px;background:rgba(11,42,74,.6);"></span><span style="width:16px;height:11px;border-radius:2px;background:rgba(11,42,74,.85);"></span></div>More</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+      <!-- TREEMAP -->
+      
+      <!-- SCATTER -->
+      
+    </div>
+
+    <!-- STACKED AREA -->
+    
+
+    <!-- WORD CLOUD -->
+    
+  </div>
+  </sc-if>
+
+  <!-- ==================================================== AGENTS & RESPONSE ==================================================== -->
+  <sc-if value="{{ isAgents }}" hint-placeholder-val="{{ true }}">
+  <div>
+    <!-- RESPONSE TRACKER -->
+    <div style="display:grid;grid-template-columns:280px 1fr;gap:16px;margin-bottom:16px;">
+      <div style="background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:18px 20px;box-shadow:0 2px 10px rgba(11,42,74,.05);display:flex;flex-direction:column;align-items:center;">
+        <div style="font-size:15px;font-weight:600;align-self:flex-start;">Response Status</div>
+        <div style="font-size:12px;color:#8A93A3;margin-top:2px;align-self:flex-start;">Pending vs posted replies</div>
+        <div style="position:relative;width:190px;height:190px;margin:14px 0 6px;">
+          <canvas data-chart="respRing"></canvas>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;">
+            <div style="font-size:34px;font-weight:700;color:#0B2A4A;line-height:1;">82%</div>
+            <div style="font-size:11px;color:#8A93A3;margin-top:3px;">POSTED</div>
+          </div>
+        </div>
+        <div style="width:100%;display:flex;flex-direction:column;gap:7px;margin-top:6px;">
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;"><span style="color:#2F8F5B;font-weight:600;">● Posted</span><span style="font-weight:600;">1,053</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;"><span style="color:#C9A24B;font-weight:600;">● Pending</span><span style="font-weight:600;">231</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;background:#FCEEED;border:1px solid #F3D3CF;border-radius:8px;padding:7px 10px;margin-top:2px;"><span style="color:#C0392B;font-weight:600;">⚑ Overdue (&gt;1 hr)</span><span style="font-weight:700;color:#C0392B;">14</span></div>
+        </div>
+      </div>
+      <div style="background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:18px 20px;box-shadow:0 2px 10px rgba(11,42,74,.05);">
+        <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;align-items:flex-start;">
+          <div>
+            <div style="font-size:15px;font-weight:600;">Reply Time Distribution</div>
+            <div style="font-size:12px;color:#8A93A3;margin-top:2px;">Across all responded reviews</div>
+          </div>
+          <div style="display:flex;gap:12px;">
+            <div style="text-align:center;background:#F3F6FB;border-radius:10px;padding:9px 16px;"><div style="font-size:22px;font-weight:700;color:#0B2A4A;">38<span style="font-size:12px;font-weight:500;color:#8A93A3;"> min</span></div><div style="font-size:10.5px;color:#8A93A3;margin-top:1px;">AVG TIME TO REPLY</div></div>
+            <div style="text-align:center;background:#FBF7EE;border-radius:10px;padding:9px 16px;"><div style="font-size:22px;font-weight:700;color:#9A7B23;">91<span style="font-size:12px;font-weight:500;color:#B79A55;">%</span></div><div style="font-size:10.5px;color:#B79A55;margin-top:1px;">WITHIN 1 HOUR</div></div>
+          </div>
+        </div>
+        <div style="position:relative;height:250px;margin-top:14px;"><canvas data-chart="replyHist"></canvas></div>
+      </div>
+    </div>
+
+    <!-- AGENT PERFORMANCE -->
+    <div style="display:grid;grid-template-columns:1.35fr 1fr;gap:16px;">
+      <div style="background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:18px 20px;box-shadow:0 2px 10px rgba(11,42,74,.05);height:522px;display:flex;flex-direction:column;overflow:hidden;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;flex-shrink:0;">
+          <div>
+            <div style="font-size:15px;font-weight:600;">Agent Performance</div>
+            <div style="font-size:12px;color:#8A93A3;margin-top:2px;">Mentions across reviews &amp; average rating where they appear</div>
+          </div>
+          <button onClick="{{ toggleAgentNeg }}" style="border:1px solid {{ agentToggleBorder }};background:{{ agentToggleBg }};color:{{ agentToggleFg }};cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;">{{ agentToggleLabel }}</button>
+        </div>
+        <div style="overflow:auto;flex:1;min-height:0;">
+          <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+            <thead>
+              <tr style="color:#6B7686;text-align:left;">
+                <th style="padding:8px 6px;font-weight:600;border-bottom:2px solid #EAEDF3;">Agent</th>
+                <th style="padding:8px 6px;font-weight:600;border-bottom:2px solid #EAEDF3;text-align:right;">Total</th>
+                <th style="padding:8px 6px;font-weight:600;border-bottom:2px solid #EAEDF3;text-align:right;color:#2F8F5B;">Pos</th>
+                <th style="padding:8px 6px;font-weight:600;border-bottom:2px solid #EAEDF3;text-align:right;color:#C0392B;">Neg</th>
+                <th style="padding:8px 6px;font-weight:600;border-bottom:2px solid #EAEDF3;text-align:right;">Ratio</th>
+                <th style="padding:8px 6px;font-weight:600;border-bottom:2px solid #EAEDF3;text-align:right;">Avg ★</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ agentRows }}" as="a" hint-placeholder-count="10">
+                <tr style="border-bottom:1px solid #F0F2F6;">
+                  <td style="padding:9px 6px;font-weight:500;">{{ a.name }}</td>
+                  <td style="padding:9px 6px;text-align:right;font-weight:600;">{{ a.total }}</td>
+                  <td style="padding:9px 6px;text-align:right;color:#2F8F5B;">{{ a.pos }}</td>
+                  <td style="padding:9px 6px;text-align:right;color:#C0392B;">{{ a.neg }}</td>
+                  <td style="padding:9px 6px;text-align:right;">{{ a.ratio }}</td>
+                  <td style="padding:9px 6px;text-align:right;font-weight:600;color:{{ a.ratingColor }};">{{ a.rating }}</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div style="background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:18px 20px;box-shadow:0 2px 10px rgba(11,42,74,.05);">
+        <div style="font-size:15px;font-weight:600;">Top 10 Agents by Mentions</div>
+        <div style="font-size:12px;color:#8A93A3;margin-top:2px;margin-bottom:12px;">Positive vs negative mention split</div>
+        <div style="position:relative;height:420px;"><canvas data-chart="agentBar"></canvas></div>
+      </div>
+    </div>
+
+    <!-- AGENT REVIEW COUNTS -->
+    <div style="background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:18px 20px;box-shadow:0 2px 10px rgba(11,42,74,.05);margin-top:16px;">
+      <div style="font-size:15px;font-weight:600;">Agents &amp; Number of Reviews</div>
+      <div style="font-size:12px;color:#8A93A3;margin-top:2px;margin-bottom:14px;">Every agent and the total reviews they appear in</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;">
+        <sc-for list="{{ agentRows }}" as="a" hint-placeholder-count="10">
+          <div style="display:flex;align-items:center;gap:11px;border:1px solid #EAEDF3;border-radius:11px;padding:11px 13px;background:#FCFDFE;">
+            <div style="width:34px;height:34px;border-radius:50%;background:#0B2A4A;color:#fff;font-weight:600;font-size:12.5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">{{ a.initials }}</div>
+            <div style="min-width:0;">
+              <div style="font-size:13px;font-weight:600;line-height:1.2;">{{ a.name }}</div>
+              <div style="font-size:12px;color:#8A93A3;margin-top:2px;">{{ a.total }} reviews</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ==================================================== BRANCHES ==================================================== -->
+  <sc-if value="{{ isBranches }}" hint-placeholder-val="{{ true }}">
+  <div>
+    <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Branch Comparison</div>
+    <div style="font-size:12.5px;color:#8A93A3;margin-bottom:16px;">Side-by-side performance across all Al Wathba Insurance branches.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:16px;">
+      <sc-for list="{{ branches }}" as="b" hint-placeholder-count="5">
+        <div style="background:#fff;border:1px solid #E7EAF0;border-radius:14px;padding:16px;box-shadow:0 2px 10px rgba(11,42,74,.05);">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div style="font-size:14px;font-weight:600;">{{ b.name }}</div>
+            <div style="font-size:19px;font-weight:700;color:#C9A24B;">{{ b.rating }}<span style="font-size:12px;color:#C9A24B;">★</span></div>
+          </div>
+          <div style="font-size:11.5px;color:#8A93A3;margin-top:2px;">{{ b.total }} reviews</div>
+          <div style="display:flex;height:8px;border-radius:5px;overflow:hidden;margin-top:12px;background:#F0F2F6;">
+            <div style="width:{{ b.posPct }}%;background:#2F8F5B;"></div>
+            <div style="width:{{ b.negPct }}%;background:#C0392B;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:5px;color:#8A93A3;"><span style="color:#2F8F5B;font-weight:600;">{{ b.posPct }}% pos</span><span style="color:#C0392B;font-weight:600;">{{ b.negPct }}% neg</span></div>
+          <div style="border-top:1px solid #F0F2F6;margin-top:12px;padding-top:10px;font-size:12px;line-height:1.7;">
+            <div style="display:flex;justify-content:space-between;"><span style="color:#8A93A3;">Top complaint</span><span style="font-weight:600;">{{ b.topComplaint }}</span></div>
+            <div style="display:flex;justify-content:space-between;"><span style="color:#8A93A3;">Avg response</span><span style="font-weight:600;">{{ b.response }}</span></div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:18px 20px;box-shadow:0 2px 10px rgba(11,42,74,.05);">
+      <div style="font-size:15px;font-weight:600;">Branch Radar — Five Dimensions</div>
+      <div style="font-size:12px;color:#8A93A3;margin-top:2px;margin-bottom:12px;">Average rating · response rate · complaint volume · resolution speed · positive ratio (normalized 0–100)</div>
+      <div style="position:relative;height:440px;max-width:640px;margin:0 auto;"><canvas data-chart="radar"></canvas></div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ==================================================== COMPETITORS ==================================================== -->
+  <sc-if value="{{ isCompetitors }}" hint-placeholder-val="{{ true }}">
+  <div>
+    <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Competitor Intelligence</div>
+    <div style="font-size:12.5px;color:#8A93A3;margin-bottom:14px;">Benchmarking Al Wathba Insurance against UAE insurance competitors (scraped Google reviews).</div>
+    <div style="display:flex;gap:4px;border-bottom:1px solid #E2E7F0;margin-bottom:16px;overflow-x:auto;">
+      <sc-for list="{{ compTabs }}" as="t" hint-placeholder-count="6">
+        <button onClick="{{ t.on }}" style="border:none;border-bottom:3px solid {{ t.border }};cursor:pointer;font-family:inherit;font-size:13px;font-weight:{{ t.weight }};padding:11px 14px;background:transparent;color:{{ t.fg }};white-space:nowrap;">{{ t.label }}</button>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{ isCompRating }}" hint-placeholder-val="{{ true }}">
+      <div style="background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:18px 20px;box-shadow:0 2px 10px rgba(11,42,74,.05);">
+        <div style="font-size:15px;font-weight:600;">Average Rating per Competitor</div>
+        <div style="font-size:12px;color:#8A93A3;margin-top:2px;margin-bottom:12px;">Al Wathba Insurance highlighted in gold</div>
+        <div style="position:relative;height:340px;"><canvas data-chart="compRating"></canvas></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isCompVolume }}" hint-placeholder-val="{{ true }}">
+      <div style="background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:18px 20px;box-shadow:0 2px 10px rgba(11,42,74,.05);">
+        <div style="font-size:15px;font-weight:600;">Review Volume Over Time</div>
+        <div style="font-size:12px;color:#8A93A3;margin-top:2px;margin-bottom:12px;">One line per competitor, monthly</div>
+        <div style="position:relative;height:360px;"><canvas data-chart="compVolume"></canvas></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isCompCat }}" hint-placeholder-val="{{ true }}">
+      <div style="background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:18px 20px;box-shadow:0 2px 10px rgba(11,42,74,.05);">
+        <div style="font-size:15px;font-weight:600;">Complaint Categories per Competitor</div>
+        <div style="font-size:12px;color:#8A93A3;margin-top:2px;margin-bottom:12px;">Where each competitor struggles most</div>
+        <div style="position:relative;height:380px;"><canvas data-chart="compCat"></canvas></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isCompVs }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div style="background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:18px 20px;box-shadow:0 2px 10px rgba(11,42,74,.05);">
+          <div style="font-size:15px;font-weight:600;">Al Wathba Insurance vs Each Competitor</div>
+          <div style="font-size:12px;color:#8A93A3;margin-top:2px;margin-bottom:12px;">Side-by-side average rating</div>
+          <div style="position:relative;height:340px;"><canvas data-chart="compVs"></canvas></div>
+        </div>
+        <div style="background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:18px 20px;box-shadow:0 2px 10px rgba(11,42,74,.05);">
+          <div style="font-size:15px;font-weight:600;">Gap Analysis — Our Advantages</div>
+          <div style="font-size:12px;color:#8A93A3;margin-top:2px;margin-bottom:12px;">Categories where competitors receive more complaints than Al Wathba Insurance</div>
+          <div style="position:relative;height:340px;"><canvas data-chart="gap"></canvas></div>
+        </div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isCompFeed }}" hint-placeholder-val="{{ true }}">
+      <div style="background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:18px 20px;box-shadow:0 2px 10px rgba(11,42,74,.05);">
+        <div style="font-size:15px;font-weight:600;">Most Recent Competitor Reviews</div>
+        <div style="font-size:12px;color:#8A93A3;margin-top:2px;margin-bottom:12px;">Latest scraped reviews across tracked competitors</div>
+        <div style="display:flex;flex-direction:column;gap:10px;max-height:560px;overflow-y:auto;padding-right:4px;">
+          <sc-for list="{{ compReviews }}" as="r" hint-placeholder-count="8">
+            <div style="border:1px solid #EAEDF3;border-radius:11px;padding:12px 14px;background:#FAFBFC;">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <span style="font-size:11px;font-weight:700;color:#fff;background:{{ r.compColor }};padding:3px 9px;border-radius:5px;">{{ r.competitor }}</span>
+                <span style="font-size:13px;font-weight:600;" dir="auto">{{ r.name }}</span>
+                <span style="font-size:11.5px;color:#8A93A3;">· {{ r.branch }}</span>
+                <span style="font-size:13px;color:#C9A24B;letter-spacing:1px;margin-left:auto;">{{ r.stars }}</span>
+              </div>
+              <div style="font-size:12.5px;line-height:1.5;color:#42506A;margin-top:8px;" dir="auto">{{ r.review }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+  </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:900},&quot;volumePositiveColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#2F8F5B&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Review Volume Over Time&quot;,&quot;options&quot;:[&quot;#2F8F5B&quot;,&quot;#0B2A4A&quot;,&quot;#C9A24B&quot;,&quot;#2E5C8A&quot;]}}">
+class Component extends DCLogic {
+  C = {
+    nav:'#0B2A4A', navL:'#2E5C8A', navXL:'#7B96B8', gold:'#C9A24B', goldL:'#E4CE93',
+    green:'#2F8F5B', red:'#C0392B', grey:'#9AA3B2', greyL:'#C9D0DB', greyXL:'#E7EAF0', ink:'#42506A'
+  };
+  rootRef = React.createRef();
+  charts = {};
+  state = { tab:'overview', compTab:'rating', statusFilter:'all', dateRange:'12m', agentNeg:false, branchSel:{}, ratingMin:1, dateFrom:'2025-08-01', dateTo:'2026-07-06' };
+
+  months = ['Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul'];
+  branchNames = ['Abu Dhabi HQ','Dubai','Sharjah','Al Ain','Ajman'];
+
+  // ---------- lifecycle ----------
+  componentDidMount(){ this._ready(); }
+  componentDidUpdate(){
+    const vc=this.charts.volume;
+    const col=(this.props.volumePositiveColor ?? this.C.green);
+    if(vc && vc.chart.data.datasets[0].backgroundColor!==col){ vc.chart.data.datasets[0].backgroundColor=col; vc.chart.update('none'); }
+    if(window.Chart) this.buildPending();
+  }
+  _ready(){
+    if(window.Chart){
+      Chart.defaults.font.family = "'IBM Plex Sans','IBM Plex Sans Arabic',sans-serif";
+      Chart.defaults.font.size = 11;
+      Chart.defaults.color = '#6B7686';
+      this.buildPending();
+    } else { setTimeout(()=>this._ready(), 80); }
+  }
+  buildPending(){
+    const root = this.rootRef.current; if(!root) return;
+    Object.keys(this.charts).forEach(k=>{ const c=this.charts[k]; if(!root.contains(c.canvas)){ try{c.chart.destroy();}catch(e){} delete this.charts[k]; }});
+    root.querySelectorAll('canvas[data-chart]').forEach(cv=>{
+      const k = cv.getAttribute('data-chart');
+      if(this.charts[k]) return;
+      const cfg = this.chartConfig(k); if(!cfg) return;
+      this.charts[k] = { chart: new Chart(cv, cfg), canvas: cv };
+    });
+  }
+
+  // ---------- chart helpers ----------
+  gridOpts(extra){
+    return Object.assign({
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ boxWidth:11, boxHeight:11, usePointStyle:true, pointStyle:'rectRounded', font:{size:11.5}, padding:14 } },
+        tooltip:{ backgroundColor:'#0B2A4A', padding:10, cornerRadius:8, titleFont:{size:12}, bodyFont:{size:12} } },
+      scales:{ x:{ grid:{display:false}, ticks:{font:{size:11}} }, y:{ grid:{color:'#F0F2F6'}, ticks:{font:{size:11}}, border:{display:false} } }
+    }, extra||{});
+  }
+
+  chartConfig(key){
+    const C = this.C, M = this.months;
+    if(key==='volume'){
+      return { type:'bar', data:{ labels:M, datasets:[
+        { label:'Positive', data:[78,84,92,88,96,102,98,110,116,121,118,97], backgroundColor:(this.props.volumePositiveColor ?? C.green), stack:'s', borderRadius:3, maxBarThickness:34 },
+        { label:'Negative', data:[42,38,46,52,40,44,48,42,38,40,44,45], backgroundColor:C.red, stack:'s', borderRadius:3, maxBarThickness:34 },
+        { label:'Avg rating', type:'line', data:[3.6,3.7,3.7,3.6,3.8,3.9,3.8,3.9,4.0,4.0,3.9,3.9], yAxisID:'y1', borderColor:C.gold, backgroundColor:C.gold, borderWidth:2.5, tension:.35, pointRadius:3, pointBackgroundColor:C.gold }
+      ]}, options: this.gridOpts({ scales:{ x:{grid:{display:false},stacked:true}, y:{stacked:true,grid:{color:'#F0F2F6'},border:{display:false},title:{display:true,text:'Reviews'}}, y1:{position:'right',min:3,max:5,grid:{display:false},border:{display:false},title:{display:true,text:'Rating'}} } }) };
+    }
+    if(key==='sentDonut'){
+      return { type:'doughnut', data:{ labels:['Positive','Negative'], datasets:[{ data:[68,32], backgroundColor:[C.green,C.red], borderWidth:3, borderColor:'#fff' }] },
+        options:{ responsive:true, maintainAspectRatio:false, cutout:'72%', plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#0B2A4A',callbacks:{label:(c)=>c.label+': '+c.parsed+'%'}} } } };
+    }
+    if(key==='sentTrend'){
+      return { type:'line', data:{ labels:M, datasets:[{ label:'% Positive', data:[65,69,67,63,71,70,67,72,75,75,73,68], borderColor:C.green, backgroundColor:'rgba(47,143,91,.10)', fill:true, tension:.4, pointRadius:0, borderWidth:2 }] },
+        options: this.gridOpts({ plugins:{legend:{display:false},tooltip:{backgroundColor:'#0B2A4A'}}, scales:{ x:{grid:{display:false},ticks:{font:{size:9},maxRotation:0}}, y:{min:50,max:85,grid:{color:'#F5F6F9'},border:{display:false},ticks:{font:{size:9},callback:(v)=>v+'%'}} } }) };
+    }
+    if(key==='starDist'){
+      return { type:'bar', data:{ labels:['1 ★','2 ★','3 ★','4 ★','5 ★'], datasets:[{ data:[96,78,120,344,646], backgroundColor:['#C0392B','#D9704A','#E0A94B','#7FA35C','#2F8F5B'], borderRadius:5, maxBarThickness:56 }] },
+        options: this.gridOpts({ plugins:{legend:{display:false},tooltip:{backgroundColor:'#0B2A4A'}} }) };
+    }
+    if(key==='starBranch'){
+      const bn = this.branchNames;
+      const s = [ [12,10,18,60,110],[22,18,28,80,150],[18,16,24,70,120],[24,20,30,74,146],[20,14,20,60,120] ];
+      const cols=['#C0392B','#D9704A','#E0A94B','#7FA35C','#2F8F5B'];
+      const ds = [1,2,3,4,5].map((st,i)=>({ label:st+'★', data:bn.map((_,bi)=>s[bi][i]), backgroundColor:cols[i], stack:'st', maxBarThickness:40 }));
+      return { type:'bar', data:{ labels:bn, datasets:ds }, options: this.gridOpts({ plugins:{legend:{labels:{boxWidth:9,boxHeight:9,font:{size:10}}},tooltip:{backgroundColor:'#0B2A4A'}}, scales:{ x:{stacked:true,grid:{display:false},ticks:{font:{size:9.5}}}, y:{stacked:true,grid:{color:'#F0F2F6'},border:{display:false}} } }) };
+    }
+    if(key==='scatter'){
+      const pts=[]; const seed=[[1,9],[1,7],[1,11],[1,8],[2,6],[2,7],[2,9],[2,5],[2,8],[1,10],[3,4],[3,5],[3,6],[2,4],[1,12],[2,10],[3,3],[3,7],[1,6],[2,11],[3,5],[2,3],[1,9],[3,4],[2,6],[1,8],[3,6],[2,7],[1,10],[2,5],[3,3],[1,7],[2,8],[3,5],[1,11],[2,9],[3,4],[1,6],[2,7],[3,6]];
+      seed.forEach(([r,d])=>pts.push({x:r+(Math.random()*0.3-0.15), y:d}));
+      return { type:'scatter', data:{ datasets:[{ label:'Negative review', data:pts, backgroundColor:'rgba(192,57,43,.55)', pointRadius:5 }] },
+        options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{backgroundColor:'#0B2A4A',callbacks:{label:(c)=>'★'+c.parsed.x.toFixed(0)+' · '+c.parsed.y+' days'}}},
+          scales:{ x:{min:0.5,max:3.5,title:{display:true,text:'Star rating'},grid:{color:'#F0F2F6'},border:{display:false},ticks:{stepSize:1}}, y:{min:0,title:{display:true,text:'Resolution days'},grid:{color:'#F0F2F6'},border:{display:false}} } } };
+    }
+    if(key==='stackedArea'){
+      const cats=[['Claim Delay',C.nav],['Poor Communication',C.navL],['Premium Dispute',C.gold],['Slow Reimbursement','#D9704A'],['Rejected Claim',C.red]];
+      const base=[[10,11,9,13,12,10,11,13,12,14,11,13],[8,9,7,10,8,9,8,7,9,8,7,9],[6,7,6,8,7,6,7,6,5,6,7,6],[5,4,5,6,5,5,4,5,6,5,4,5],[4,5,4,5,4,4,5,4,3,4,5,4]];
+      const ds=cats.map((c,i)=>({label:c[0],data:base[i],backgroundColor:this.alpha(c[1],.75),borderColor:c[1],fill:true,tension:.35,pointRadius:0,borderWidth:1.5}));
+      return { type:'line', data:{labels:M,datasets:ds}, options:this.gridOpts({ plugins:{legend:{labels:{boxWidth:9,boxHeight:9,font:{size:10}}},tooltip:{backgroundColor:'#0B2A4A'}}, scales:{x:{grid:{display:false},stacked:true},y:{stacked:true,grid:{color:'#F0F2F6'},border:{display:false}}} }) };
+    }
+    if(key==='agentBar'){
+      const a=this.agents().slice(0,10);
+      return { type:'bar', data:{ labels:a.map(x=>x.name), datasets:[
+        {label:'Positive',data:a.map(x=>x.pos),backgroundColor:C.nav,stack:'a',maxBarThickness:22},
+        {label:'Negative',data:a.map(x=>x.neg),backgroundColor:C.red,stack:'a',maxBarThickness:22}
+      ]}, options: this.gridOpts({ indexAxis:'y', plugins:{legend:{labels:{boxWidth:10,boxHeight:10}},tooltip:{backgroundColor:'#0B2A4A'}}, scales:{ x:{stacked:true,grid:{color:'#F0F2F6'},border:{display:false}}, y:{stacked:true,grid:{display:false},ticks:{font:{size:11}}} } }) };
+    }
+    if(key==='respRing'){
+      return { type:'doughnut', data:{ labels:['Posted','Pending'], datasets:[{ data:[82,18], backgroundColor:[C.green,C.gold], borderWidth:3, borderColor:'#fff' }] },
+        options:{ responsive:true, maintainAspectRatio:false, cutout:'74%', plugins:{legend:{display:false},tooltip:{backgroundColor:'#0B2A4A',callbacks:{label:(c)=>c.label+': '+c.parsed+'%'}}} } };
+    }
+    if(key==='replyHist'){
+      return { type:'bar', data:{ labels:['0–10m','10–30m','30–60m','1–2h','2–6h','6–24h','>24h'], datasets:[{ data:[286,402,254,132,78,46,24], backgroundColor:C.nav, borderRadius:5, maxBarThickness:52 }] },
+        options: this.gridOpts({ plugins:{legend:{display:false},tooltip:{backgroundColor:'#0B2A4A'}}, scales:{x:{grid:{display:false}},y:{grid:{color:'#F0F2F6'},border:{display:false},title:{display:true,text:'Replies'}}} }) };
+    }
+    if(key==='radar'){
+      const bn=this.branchNames;
+      const cols=[C.nav,C.gold,C.green,C.red,C.navXL];
+      const data=[[82,90,70,78,84],[76,72,60,68,74],[70,80,55,72,66],[86,84,74,82,88],[64,68,50,60,62]];
+      const ds=bn.map((b,i)=>({label:b,data:data[i],borderColor:cols[i],backgroundColor:this.alpha(cols[i],.12),borderWidth:2,pointRadius:3,pointBackgroundColor:cols[i]}));
+      return { type:'radar', data:{ labels:['Avg rating','Response rate','Complaint volume','Resolution speed','Positive ratio'], datasets:ds },
+        options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{boxWidth:10,boxHeight:10,padding:12}},tooltip:{backgroundColor:'#0B2A4A'}}, scales:{ r:{ min:0,max:100,angleLines:{color:'#E7EAF0'},grid:{color:'#E7EAF0'},pointLabels:{font:{size:11.5,weight:'500'},color:'#42506A'},ticks:{display:false,stepSize:20} } } } };
+    }
+    if(key==='compRating'){
+      const rows=[['Orient Insurance',4.1,false],['Al Wathba Insurance',3.9,true],['ADN Takaful',3.8,false],['Sukoon',3.7,false],['GIG Gulf',3.5,false],['RAK Insurance',3.4,false]];
+      return { type:'bar', data:{ labels:rows.map(r=>r[0]), datasets:[{ data:rows.map(r=>r[1]), backgroundColor:rows.map(r=>r[2]?C.gold:C.grey), borderRadius:5, maxBarThickness:34 }] },
+        options: this.gridOpts({ indexAxis:'y', plugins:{legend:{display:false},tooltip:{backgroundColor:'#0B2A4A'}}, scales:{ x:{min:0,max:5,grid:{color:'#F0F2F6'},border:{display:false}}, y:{grid:{display:false}} } }) };
+    }
+    if(key==='compVolume'){
+      const comp=[['Al Wathba Insurance',C.gold,[120,122,138,140,136,146,146,152,154,161,162,142]],['Orient',C.nav,[90,96,102,110,108,114,120,118,124,130,128,120]],['Sukoon',C.navL,[70,74,72,80,78,84,82,88,90,86,92,88]],['GIG Gulf','#8A94A6',[60,58,66,62,70,68,72,70,74,76,72,70]],['RAK',C.red,[40,44,42,48,46,50,48,52,54,50,56,52]]];
+      return { type:'line', data:{ labels:M, datasets:comp.map(c=>({label:c[0],data:c[2],borderColor:c[1],backgroundColor:c[1],borderWidth:c[0]==='Al Wathba Insurance'?3:2,tension:.35,pointRadius:0})) },
+        options: this.gridOpts({ plugins:{legend:{labels:{boxWidth:10,boxHeight:10}},tooltip:{backgroundColor:'#0B2A4A'}} }) };
+    }
+    if(key==='compCat'){
+      const cats=['Claim Delay','Poor Comms','Premium','Slow Reimb.','Rejected'];
+      const comp=[['Al Wathba Insurance',C.gold,[128,96,74,61,55]],['Orient',C.nav,[110,120,88,70,64]],['Sukoon',C.navL,[140,104,96,84,72]],['GIG Gulf','#8A94A6',[156,132,102,90,88]]];
+      return { type:'bar', data:{ labels:cats, datasets:comp.map(c=>({label:c[0],data:c[2],backgroundColor:c[1],maxBarThickness:22,borderRadius:3})) },
+        options: this.gridOpts({ plugins:{legend:{labels:{boxWidth:10,boxHeight:10}},tooltip:{backgroundColor:'#0B2A4A'}} }) };
+    }
+    if(key==='compVs'){
+      const rows=[['Orient',4.1],['Sukoon',3.7],['GIG Gulf',3.5],['ADN Takaful',3.8],['RAK',3.4]];
+      return { type:'bar', data:{ labels:rows.map(r=>r[0]), datasets:[
+        {label:'Al Wathba Insurance',data:rows.map(()=>3.9),backgroundColor:C.gold,maxBarThickness:26,borderRadius:4},
+        {label:'Competitor',data:rows.map(r=>r[1]),backgroundColor:C.grey,maxBarThickness:26,borderRadius:4}
+      ]}, options: this.gridOpts({ plugins:{legend:{labels:{boxWidth:10,boxHeight:10}},tooltip:{backgroundColor:'#0B2A4A'}}, scales:{x:{grid:{display:false}},y:{min:0,max:5,grid:{color:'#F0F2F6'},border:{display:false}}} }) };
+    }
+    if(key==='gap'){
+      const rows=[['GIG Gulf — Claim Delay',28],['Sukoon — Slow Reimb.',23],['GIG Gulf — Poor Comms',36],['RAK — Rejected Claim',19],['Sukoon — Premium',22],['Orient — Documentation',14]];
+      return { type:'bar', data:{ labels:rows.map(r=>r[0]), datasets:[{ label:'More complaints than Al Wathba Insurance', data:rows.map(r=>r[1]), backgroundColor:C.green, borderRadius:5, maxBarThickness:26 }] },
+        options: this.gridOpts({ indexAxis:'y', plugins:{legend:{display:false},tooltip:{backgroundColor:'#0B2A4A',callbacks:{label:(c)=>'+'+c.parsed.x+' vs Al Wathba Insurance'}}}, scales:{ x:{grid:{color:'#F0F2F6'},border:{display:false},title:{display:true,text:'Complaint gap (count)'}}, y:{grid:{display:false},ticks:{font:{size:10.5}}} } }) };
+    }
+    return null;
+  }
+
+  alpha(hex,a){ const h=hex.replace('#',''); const n=parseInt(h,16); const r=(n>>16)&255,g=(n>>8)&255,b=n&255; return 'rgba('+r+','+g+','+b+','+a+')'; }
+
+  // ---------- data ----------
+  agents(){
+    return [
+      {name:'Ahmed Al Mansoori',total:186,pos:148,neg:38,rating:4.2},
+      {name:'Fatima Al Zaabi',total:164,pos:139,neg:25,rating:4.4},
+      {name:'Rashid Khan',total:142,pos:96,neg:46,rating:3.6},
+      {name:'Sara Ibrahim',total:131,pos:110,neg:21,rating:4.3},
+      {name:'Mohammed Ali',total:118,pos:74,neg:44,rating:3.4},
+      {name:'Layla Hassan',total:104,pos:88,neg:16,rating:4.5},
+      {name:'Omar Farooq',total:92,pos:58,neg:34,rating:3.5},
+      {name:'Noura Al Shamsi',total:81,pos:69,neg:12,rating:4.4},
+      {name:'Vikram Nair',total:74,pos:52,neg:22,rating:3.8},
+      {name:'Aisha Rahman',total:63,pos:41,neg:22,rating:3.7}
+    ];
+  }
+
+  heatData(){
+    const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const hours=[]; for(let h=8;h<=22;h++){ hours.push(h+':00'); }
+    // weight: weekday evenings peak; friday/sat lower daytime
+    const dayW=[0.75,1.0,1.05,1.0,1.1,0.6,0.7];
+    let max=0; const grid=days.map((d,di)=>hours.map((_,hi)=>{
+      const hour=8+hi;
+      let hourW = hour>=17&&hour<=21 ? 1.1 : (hour>=11&&hour<=14?0.85:0.55);
+      const v=Math.round(dayW[di]*hourW*20 + Math.sin(hi*0.9)*3 + (di*hi%5));
+      max=Math.max(max,v); return v;
+    }));
+    const rows=days.map((d,di)=>({ day:d, cells:grid[di].map((v,hi)=>({ bg:this.alpha('#0B2A4A', 0.08+0.85*(v/max)), label:d+' '+hours[hi]+' · '+v })) }));
+    return { hours:hours.map(h=>h.replace(':00','')), rows };
+  }
+
+  treeData(){
+    const items=[
+      {label:'Claim Delay',value:214,color:'#0B2A4A'},
+      {label:'Fast & Helpful',value:186,color:'#2F8F5B'},
+      {label:'Poor Communication',value:142,color:'#123A63'},
+      {label:'Premium Dispute',value:98,color:'#C9A24B'},
+      {label:'Smooth Renewal',value:86,color:'#3A9E6B'},
+      {label:'Rejected Claim',value:74,color:'#C0392B'},
+      {label:'Documentation',value:62,color:'#2E5C8A'},
+      {label:'App/Portal Issue',value:54,color:'#7B96B8'},
+      {label:'Professional Staff',value:48,color:'#7FA35C'},
+      {label:'Slow Reimbursement',value:41,color:'#D9704A'}
+    ];
+    const rects=[];
+    const rec=(list,x,y,w,h,horiz)=>{
+      if(list.length===0)return;
+      if(list.length===1){ rects.push(Object.assign({},list[0],{x,y,w,h})); return; }
+      const sum=list.reduce((s,i)=>s+i.value,0);
+      let acc=0,idx=0;
+      for(let i=0;i<list.length;i++){ acc+=list[i].value; idx=i; if(acc>=sum/2) break; }
+      const a=list.slice(0,idx+1), b=list.slice(idx+1);
+      const frac=a.reduce((s,i)=>s+i.value,0)/sum;
+      if(horiz){ const wa=w*frac; rec(a,x,y,wa,h,!horiz); rec(b,x+wa,y,w-wa,h,!horiz); }
+      else { const ha=h*frac; rec(a,x,y,w,ha,!horiz); rec(b,x,y+ha,w,h-ha,!horiz); }
+    };
+    rec(items,0,0,100,100,true);
+    return rects.map(r=>({ label:r.label, value:r.value, color:r.color, x:+r.x.toFixed(2), y:+r.y.toFixed(2), w:+r.w.toFixed(2), h:+r.h.toFixed(2), fs:(r.w*r.h)>320?14:((r.w*r.h)>140?12:10.5), fg:'#ffffff' }));
+  }
+
+  wordData(){
+    const raw=[['claim',60],['delay',52],['service',48],['ممتاز',44],['helpful',40],['staff',38],['response',34],['slow',32],['fast',30],['premium',28],['renewal',26],['motor',26],['شكرا',24],['professional',24],['medical',22],['approved',22],['reject',20],['app',20],['agent',19],['friendly',18],['waiting',18],['refund',17],['سريع',16],['policy',16],['excellent',15],['portal',14]];
+    const max=60, min=14;
+    return raw.map((w,i)=>{ const size=14+(w[1]-min)/(max-min)*26; const c=[this.C.nav,this.C.gold,this.C.green,this.C.navL,this.C.red][i%5]; return { text:w[0], size:+size.toFixed(1), weight: w[1]>34?'700':(w[1]>22?'600':'500'), color:c }; });
+  }
+
+  reviews(){
+    const g='#2F8F5B', gd='#C9A24B', gr='#2F8F5B', rd='#C0392B';
+    return [
+      {name:'Khalid Al Suwaidi',initials:'KS',meta:'Dubai · Motor Claims · 2h ago',stars:'★★★★★',rating:5,status:'posted',review:'Excellent handling of my accident claim. The agent kept me updated at every step and the settlement was quick.',aiReason:'Positive — fast claim settlement, proactive updates',suggested:'Thank you, Khalid! We are delighted our team met your expectations. We look forward to serving you again.',avatarBg:g},
+      {name:'منى العامري',initials:'م',meta:'Abu Dhabi HQ · Medical · 3h ago',stars:'★★☆☆☆',rating:2,status:'overdue',review:'تأخير كبير في الموافقة على المطالبة الطبية ولم يتم الرد على مكالماتي.',aiReason:'Negative — medical approval delay, poor phone responsiveness',suggested:'نعتذر عن التأخير يا منى. سيتواصل معك فريق المطالبات الطبية خلال ساعة لحل الأمر.',avatarBg:rd},
+      {name:'Rohan Mehta',initials:'RM',meta:'Sharjah · Motor Claims · 5h ago',stars:'★☆☆☆☆',rating:1,status:'overdue',review:'Very disappointed. My reimbursement has been pending for three weeks with no clear reason given.',aiReason:'Negative — slow reimbursement, lack of clarity',suggested:'We are sorry, Rohan. Your case has been escalated and a specialist will call you today with a resolution timeline.',avatarBg:rd},
+      {name:'Aisha Al Balushi',initials:'AB',meta:'Al Ain · Customer Service · 6h ago',stars:'★★★★★',rating:5,status:'posted',review:'The renewal process was seamless and the staff were very professional and patient with my questions.',aiReason:'Positive — smooth renewal, professional staff',suggested:'Thank you for the kind words, Aisha! We appreciate your continued trust in Al Wathba Insurance.',avatarBg:g},
+      {name:'David Thompson',initials:'DT',meta:'Dubai · Underwriting · 8h ago',stars:'★★★☆☆',rating:3,status:'pending',review:'Service was okay but the premium quoted was higher than expected and the explanation was unclear.',aiReason:'Neutral/Negative — premium dispute, unclear pricing',suggested:'Thank you for your feedback, David. An underwriting specialist will reach out to explain your premium breakdown.',avatarBg:gd},
+      {name:'فاطمة الكعبي',initials:'ف',meta:'Ajman · Medical · 10h ago',stars:'★★★★★',rating:5,status:'posted',review:'خدمة ممتازة وسريعة، شكراً لفريق العمل على التعاون.',aiReason:'Positive — excellent and fast service',suggested:'شكراً جزيلاً يا فاطمة! يسعدنا خدمتك دائماً.',avatarBg:g},
+      {name:'James Okoro',initials:'JO',meta:'Abu Dhabi HQ · Motor Claims · 12h ago',stars:'★★☆☆☆',rating:2,status:'pending',review:'My claim was rejected without a detailed explanation. I would appreciate a proper review of my case.',aiReason:'Negative — rejected claim, insufficient explanation',suggested:'We understand your frustration, James. We will re-examine your claim and share a detailed decision within 48 hours.',avatarBg:rd},
+      {name:'Priya Sharma',initials:'PS',meta:'Sharjah · Customer Service · 14h ago',stars:'★★★★☆',rating:4,status:'posted',review:'Good overall experience. The mobile app could be more intuitive but staff support made up for it.',aiReason:'Positive — helpful staff, minor app usability issue',suggested:'Thanks, Priya! We are actively improving the app and value your feedback.',avatarBg:g},
+      {name:'Sultan Al Nuaimi',initials:'SN',meta:'Al Ain · Motor Claims · 16h ago',stars:'★★★★★',rating:5,status:'posted',review:'Handled my windscreen claim within a day. Very impressed with the efficiency.',aiReason:'Positive — fast claim, high efficiency',suggested:'Thank you, Sultan! Efficiency is our priority and we are glad it showed.',avatarBg:g},
+      {name:'Grace Fernandes',initials:'GF',meta:'Dubai · Medical · 18h ago',stars:'★★★☆☆',rating:3,status:'pending',review:'Approval came through but it took longer than the promised turnaround time.',aiReason:'Neutral — approval granted but delayed turnaround',suggested:'Thank you, Grace. We are reviewing our medical approval SLAs to prevent future delays.',avatarBg:gd}
+    ];
+  }
+
+  statusStyle(s){
+    if(s==='posted') return {bg:'#E5F3EC',fg:'#2F8F5B',label:'Posted'};
+    if(s==='overdue') return {bg:'#FCEEED',fg:'#C0392B',label:'Overdue · >1 hr'};
+    return {bg:'#FBF3E2',fg:'#9A7B23',label:'Pending'};
+  }
+
+  compReviews(){
+    const cc={Orient:'#0B2A4A',Sukoon:'#123A63','GIG Gulf':'#8A94A6',RAK:'#C0392B','ADN Takaful':'#2E5C8A'};
+    const arr=[
+      {competitor:'Orient',name:'Michael Ross',branch:'Dubai',stars:'★★★★☆',review:'Reasonable service though the call centre wait times were long during peak hours.'},
+      {competitor:'GIG Gulf',name:'أحمد سالم',branch:'Abu Dhabi',stars:'★☆☆☆☆',review:'تأخير غير مقبول في معالجة مطالبة السيارة وضعف في التواصل.'},
+      {competitor:'Sukoon',name:'Linda Park',branch:'Sharjah',stars:'★★★☆☆',review:'Medical claim approved but reimbursement took nearly a month to process.'},
+      {competitor:'RAK',name:'Yousef Habib',branch:'Ras Al Khaimah',stars:'★★☆☆☆',review:'Premium increased sharply at renewal with little justification provided.'},
+      {competitor:'ADN Takaful',name:'Sara Menon',branch:'Dubai',stars:'★★★★★',review:'Very smooth takaful onboarding, staff were knowledgeable and courteous.'},
+      {competitor:'GIG Gulf',name:'Omar Zaid',branch:'Al Ain',stars:'★★☆☆☆',review:'App kept crashing and I could not track my claim status online.'},
+      {competitor:'Orient',name:'ريم الهاشمي',branch:'Dubai',stars:'★★★★☆',review:'خدمة جيدة بشكل عام ولكن الإجراءات الورقية كثيرة.'},
+      {competitor:'Sukoon',name:'Daniel Cruz',branch:'Abu Dhabi',stars:'★★★☆☆',review:'Decent coverage options but the renewal reminder came too late.'}
+    ];
+    return arr.map(r=>Object.assign({},r,{compColor:cc[r.competitor]||'#8A94A6'}));
+  }
+
+  // ---------- handlers ----------
+  set(k,v){ this.setState({[k]:v}); }
+  toggleBranch(b){ this.setState(s=>({branchSel:Object.assign({},s.branchSel,{[b]:!s.branchSel[b]})})); }
+  toggleAgentNeg(){ this.setState(s=>({agentNeg:!s.agentNeg})); }
+  resetFilters(){ this.setState({statusFilter:'all',dateRange:'12m',branchSel:{},agentNeg:false,ratingMin:1,dateFrom:'2025-08-01',dateTo:'2026-07-06'}); }
+
+  seg(active,label,fg,bg){ return active?{bg,fg:'#fff'}:{bg:'transparent',fg:'#6B7686'}; }
+
+  rangeInfo(s){
+    const a=new Date(s.dateFrom), b=new Date(s.dateTo);
+    if(isNaN(a)||isNaN(b)) return {label:'', color:'#8A93A3'};
+    if(b<a) return {label:'Invalid range', color:'#C0392B'};
+    const days=Math.round((b-a)/86400000)+1;
+    return {label:days+' days selected', color:'#2F8F5B'};
+  }
+
+  renderVals(){
+    const C=this.C, s=this.state;
+    // KPIs
+    const kpis=[
+      {label:'Reviews This Month',value:'142',trend:'▲ 6%',trendColor:C.green,sub:'vs 134 last month',accent:C.nav},
+      {label:'Positive vs Negative',value:'68/32',trend:'',trendColor:C.green,sub:'873 pos · 411 neg',accent:C.green},
+      {label:'Average Star Rating',value:'3.9',trend:'▲ 0.2',trendColor:C.green,sub:'MoM trend up',accent:C.gold},
+      {label:'Pending Replies',value:'18',trend:'⚑ 14 overdue',trendColor:C.red,sub:'>1 hr flagged red',accent:C.gold},
+      {label:'Reviews YTD',value:'1,284',trend:'▲ 11%',trendColor:C.green,sub:'vs 2025 YTD',accent:C.nav},
+      {label:'MoM Rating Change',value:'+0.2',trend:'▲',trendColor:C.green,sub:'3.7 → 3.9',accent:C.gold}
+    ];
+    // complaint categories
+    const rawCats=[['Claim Delay',128,'up'],['Poor Communication',96,'down'],['Premium Dispute',74,'up'],['Slow Reimbursement',61,'down'],['Rejected Claim',55,'up'],['Documentation Issues',48,'down'],['App/Portal Issues',39,'up'],['Staff Behaviour',31,'down'],['Renewal Problems',24,'down']];
+    const maxC=128;
+    const complaintCats=rawCats.map(c=>({label:c[0],value:c[1],pct:+(c[1]/maxC*100).toFixed(1),trend:c[2]==='up'?'▲ +'+(4+c[1]%7):'▼ −'+(3+c[1]%5),trendColor:c[2]==='up'?C.red:C.green}));
+    // agents (with filter)
+    let agents=this.agents();
+    if(s.agentNeg) agents=agents.filter(a=>a.neg>=25).sort((a,b)=>b.neg-a.neg);
+    const agentRows=agents.map(a=>({name:a.name,initials:a.name.split(' ').map(w=>w[0]).slice(0,2).join(''),total:a.total,pos:a.pos,neg:a.neg,ratio:(a.pos/Math.max(1,a.neg)).toFixed(1)+':1',rating:a.rating.toFixed(1),ratingColor:a.rating>=4?C.green:(a.rating>=3.6?C.gold:C.red)}));
+    // branches
+    const bd=[['Abu Dhabi HQ',4.1,342,72,'Claim Delay','32 min'],['Dubai',3.8,388,66,'Poor Comms','41 min'],['Sharjah',3.7,268,64,'Slow Reimb.','38 min'],['Al Ain',4.2,196,78,'Claim Delay','29 min'],['Ajman',3.5,90,60,'Premium','47 min']];
+    const branches=bd.map(b=>({name:b[0],rating:b[1].toFixed(1),total:b[2],posPct:b[3],negPct:100-b[3],topComplaint:b[4],response:b[5]}));
+    // feed
+    let feed=this.reviews();
+    if(s.statusFilter!=='all') feed=feed.filter(r=>r.status===s.statusFilter);
+    if(s.ratingMin>1) feed=feed.filter(r=>r.rating>=s.ratingMin);
+    const feedReviews=feed.map(r=>{ const st=this.statusStyle(r.status); return Object.assign({},r,{statusBg:st.bg,statusFg:st.fg,statusLabel:st.label}); });
+    // tabs
+    const mkTab=(id,label)=>{ const a=s.tab===id; return {label,on:()=>this.set('tab',id),border:a?C.gold:'transparent',fg:a?C.nav:'#6B7686',weight:a?'600':'500'}; };
+    const tabs=[mkTab('overview','Overview'),mkTab('analytics','Data Analytics'),mkTab('agents','Agents & Response'),mkTab('branches','Branches'),mkTab('competitors','Competitors')];
+    const mkC=(id,label)=>{ const a=s.compTab===id; return {label,on:()=>this.set('compTab',id),border:a?C.gold:'transparent',fg:a?C.nav:'#6B7686',weight:a?'600':'500'}; };
+    const compTabs=[mkC('rating','Ratings'),mkC('volume','Volume'),mkC('cat','Categories'),mkC('vs','Head-to-head'),mkC('feed','Recent Feed')];
+    // date range segs
+    const mkDr=(id,label)=>{ const st=this.seg(s.dateRange===id,label,'#fff',C.nav); return {label,on:()=>this.set('dateRange',id),bg:st.bg,fg:st.fg}; };
+    const dateRanges=[mkDr('30d','30d'),mkDr('90d','90d'),mkDr('12m','12m'),mkDr('ytd','YTD')];
+    // status segs
+    const mkSt=(id,label)=>{ const st=this.seg(s.statusFilter===id,label,'#fff',C.nav); return {label,on:()=>this.set('statusFilter',id),bg:st.bg,fg:st.fg}; };
+    const statusSegs=[mkSt('all','All'),mkSt('pending','Pending'),mkSt('posted','Posted'),mkSt('overdue','Overdue')];
+    // branch chips
+    const branchChips=this.branchNames.map(b=>{ const a=!!s.branchSel[b]; return {label:b,on:()=>this.toggleBranch(b),bg:a?C.nav:'#fff',fg:a?'#fff':'#42506A',border:a?C.nav:'#D8DEE9'}; });
+
+    return {
+      rootRef:this.rootRef,
+      volPosColor:(this.props.volumePositiveColor ?? C.green),
+      ratingMin:s.ratingMin, onRating:(e)=>this.set('ratingMin', +e.target.value),
+      dateFrom:s.dateFrom, dateTo:s.dateTo,
+      onDateFrom:(e)=>this.set('dateFrom', e.target.value), onDateTo:(e)=>this.set('dateTo', e.target.value),
+      rangeLabel:this.rangeInfo(s).label, rangeColor:this.rangeInfo(s).color,
+      kpis, complaintCats, agentRows, branches, feedReviews,
+      heat:this.heatData(), tree:this.treeData(), words:this.wordData(), compReviews:this.compReviews(),
+      tabs, compTabs, dateRanges, statusSegs, branchChips, resetFilters:()=>this.resetFilters(),
+      isOverview:s.tab==='overview', isAnalytics:s.tab==='analytics', isAgents:s.tab==='agents', isBranches:s.tab==='branches', isCompetitors:s.tab==='competitors',
+      isCompRating:s.compTab==='rating', isCompVolume:s.compTab==='volume', isCompCat:s.compTab==='cat', isCompVs:s.compTab==='vs', isCompFeed:s.compTab==='feed',
+      toggleAgentNeg:()=>this.toggleAgentNeg(),
+      agentToggleLabel:s.agentNeg?'✓ Negative mentions only':'Show negative only',
+      agentToggleBg:s.agentNeg?C.red:'#fff', agentToggleFg:s.agentNeg?'#fff':'#42506A', agentToggleBorder:s.agentNeg?C.red:'#D8DEE9'
+    };
+  }
+}
+</script>
+</body>
+</html>

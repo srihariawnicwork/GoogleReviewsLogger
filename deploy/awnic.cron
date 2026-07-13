@@ -1,9 +1,18 @@
-# AWNIC review scraper — cron schedule
-# Install with:  crontab -e   (paste the line below, fix the path to your VM path)
-#
-# Every 4 hours (recommended: catches new reviews + re-checks for owner replies
-# without hammering Apify/Groq). Change to "0 * * * *" for hourly.
-#
-# 0 */4 * * * /home/UBUNTU_USER/awnic/deploy/run_reviews.sh
-#
-# Tip: use an absolute path. Verify your path with:  realpath deploy/run_reviews.sh
+# AWNIC review scrapers — cron schedule
+# Install with:  crontab -e   (paste both lines, fixed to your VM path)
+
+# Own reviews — every 15 minutes
+*/15 * * * * /home/user_sai/GoogleReviewsLogger/deploy/run_reviews.sh
+
+# Competitor reviews — once a day at 06:00 (13 competitor places per run)
+0 6 * * * /home/user_sai/GoogleReviewsLogger/deploy/run_competitors.sh
+
+# NOTES
+# - 15-min own polling = ~96 actor runs/day; competitors add 13 place-scrapes
+#   once daily. Watch Apify usage.
+# - Dedup means only NEW/changed own reviews hit Groq; competitor reviews skip
+#   Groq entirely (raw log), so the daily competitor run is cheap.
+# - flock guards in both run scripts prevent overlapping runs.
+# - Own logs:        logs/reviews_YYYY-MM-DD.log
+#   Competitor logs: logs/competitors_YYYY-MM-DD.log
+# - Verify paths with:  realpath deploy/run_reviews.sh deploy/run_competitors.sh

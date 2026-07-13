@@ -1,0 +1,905 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Al Wathba Insurance · Google Reviews Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #EEF1F6; font-family: 'IBM Plex Sans','IBM Plex Sans Arabic',-apple-system,sans-serif; color: #0B2A4A; }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: #C3CAD6; border-radius: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  @keyframes awnicPulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  .card { background:#fff;border:1px solid #E7EAF0;border-radius:16px;padding:18px 20px;box-shadow:0 2px 10px rgba(11,42,74,.05); }
+  .ctitle { font-size:15px;font-weight:600; }
+  .csub { font-size:12px;color:#8A93A3;margin-top:2px; }
+  .seg { border:none;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:500;padding:5px 11px;border-radius:6px;background:transparent;color:#6B7686; }
+  .seg.on { background:#0B2A4A;color:#fff; }
+  .chip { border:1px solid #D8DEE9;cursor:pointer;font-family:inherit;font-size:12px;font-weight:500;padding:4px 10px;border-radius:20px;background:#fff;color:#42506A; }
+  .chip.on { background:#0B2A4A;color:#fff;border-color:#0B2A4A; }
+  .tabbtn { border:none;border-bottom:3px solid transparent;cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:500;padding:14px 16px;background:transparent;color:#6B7686;white-space:nowrap; }
+  .tabbtn.on { border-bottom-color:#C9A24B;color:#0B2A4A;font-weight:600; }
+  .ctabbtn { border:none;border-bottom:3px solid transparent;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;padding:11px 14px;background:transparent;color:#6B7686;white-space:nowrap; }
+  .ctabbtn.on { border-bottom-color:#C9A24B;color:#0B2A4A;font-weight:600; }
+  table { width:100%;border-collapse:collapse;font-size:12.5px; }
+  th { padding:8px 6px;font-weight:600;border-bottom:2px solid #EAEDF3;color:#6B7686;text-align:left; }
+  td { padding:9px 6px;border-bottom:1px solid #F0F2F6; }
+</style>
+</head>
+<body>
+
+<!-- ============ STICKY HEADER STACK ============ -->
+<div style="position:sticky;top:0;z-index:40;background:#fff;">
+  <!-- TOP BAR -->
+  <div style="background:linear-gradient(100deg,#08213E 0%,#0B2A4A 55%,#123A63 100%);color:#fff;padding:16px 26px;display:flex;align-items:center;gap:18px;box-shadow:0 2px 14px rgba(8,22,44,.25);">
+    <div style="min-width:0;">
+      <div style="font-size:18px;font-weight:600;letter-spacing:.2px;line-height:1.1;">Al Wathba Insurance · Google Reviews Dashboard</div>
+      <div style="font-size:12.5px;color:#A9BCD4;margin-top:2px;">Google Reviews Analytics — Al Wathba National Insurance Company</div>
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:22px;">
+      <div style="font-size:13px;color:#E4CE93;font-weight:500;display:flex;align-items:center;gap:6px;">
+        <span id="syncDot" style="width:8px;height:8px;border-radius:50%;background:#3FD37F;display:inline-block;animation:awnicPulse 1.6s infinite;"></span>
+        <span id="syncLabel">Connecting…</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- GLOBAL FILTER BAR (collapses on scroll down, returns on scroll up) -->
+  <div id="filterWrap" style="overflow:hidden;max-height:220px;opacity:1;will-change:max-height,opacity;transition:max-height .32s cubic-bezier(.4,0,.2,1),opacity .25s cubic-bezier(.4,0,.2,1);">
+  <div style="background:#fff;border-bottom:1px solid #E2E7F0;padding:12px 26px;display:flex;flex-wrap:wrap;align-items:center;gap:18px;box-shadow:0 1px 6px rgba(11,42,74,.04);">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:11px;font-weight:600;color:#6B7686;text-transform:uppercase;letter-spacing:.6px;">Date</span>
+      <div id="dateSegs" style="display:flex;background:#EEF1F6;border-radius:8px;padding:3px;gap:2px;"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:11px;font-weight:600;color:#6B7686;text-transform:uppercase;letter-spacing:.6px;">Branch</span>
+      <div id="branchChips" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:11px;font-weight:600;color:#6B7686;text-transform:uppercase;letter-spacing:.6px;">Range</span>
+      <input type="date" id="dateFrom" style="font-family:inherit;font-size:12.5px;border:1px solid #D8DEE9;border-radius:8px;padding:5px 9px;color:#0B2A4A;background:#fff;cursor:pointer;">
+      <span style="font-size:12px;color:#8A93A3;">→</span>
+      <input type="date" id="dateTo" style="font-family:inherit;font-size:12.5px;border:1px solid #D8DEE9;border-radius:8px;padding:5px 9px;color:#0B2A4A;background:#fff;cursor:pointer;">
+      <span id="rangeLabel" style="font-size:11.5px;font-weight:600;color:#8A93A3;white-space:nowrap;"></span>
+    </div>
+    <button onclick="resetFilters()" style="margin-left:auto;border:1px solid #D8DEE9;background:#fff;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;color:#0B2A4A;padding:7px 14px;border-radius:8px;display:flex;align-items:center;gap:6px;">↺ Reset filters</button>
+  </div>
+  </div>
+
+  <!-- SECTION TABS -->
+  <div id="tabBar" style="background:#fff;border-bottom:1px solid #E2E7F0;padding:0 26px;display:flex;gap:4px;overflow-x:auto;"></div>
+</div>
+
+<div style="max-width:1440px;margin:0 auto;padding:22px 26px 60px;">
+
+<!-- ==================== OVERVIEW ==================== -->
+<div id="tab-overview">
+  <div id="kpiGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:14px;margin-bottom:20px;"></div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+      <div>
+        <div class="ctitle">Review Volume Over Time</div>
+        <div class="csub">Own reviews per month — positive vs negative, with monthly average rating overlay</div>
+      </div>
+      <div style="display:flex;gap:14px;align-items:center;font-size:11.5px;color:#6B7686;">
+        <span style="display:flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:#2F8F5B;display:inline-block;"></span>Positive</span>
+        <span style="display:flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:#C0392B;display:inline-block;"></span>Negative</span>
+        <span style="display:flex;align-items:center;gap:5px;"><span style="width:16px;height:3px;border-radius:2px;background:#C9A24B;display:inline-block;"></span>Avg rating</span>
+      </div>
+    </div>
+    <div style="position:relative;height:300px;"><canvas id="ch-volume"></canvas></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div class="card">
+      <div class="ctitle">Sentiment Breakdown</div>
+      <div class="csub">Positive vs negative share, and monthly ratio trend</div>
+      <div style="display:flex;gap:14px;align-items:center;margin-top:12px;">
+        <div style="position:relative;width:172px;height:172px;flex-shrink:0;">
+          <canvas id="ch-sentDonut"></canvas>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;">
+            <div id="sentPct" style="font-size:30px;font-weight:700;color:#2F8F5B;line-height:1;">–</div>
+            <div style="font-size:11px;color:#8A93A3;margin-top:3px;letter-spacing:.4px;">POSITIVE</div>
+          </div>
+        </div>
+        <div style="flex:1;min-width:0;" id="sentLegend"></div>
+      </div>
+      <div style="position:relative;height:130px;margin-top:10px;border-top:1px solid #F0F2F6;padding-top:8px;"><canvas id="ch-sentTrend"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="ctitle">Star Rating Distribution</div>
+      <div class="csub">Overall counts, and per-branch comparison</div>
+      <div style="position:relative;height:150px;margin-top:12px;"><canvas id="ch-starDist"></canvas></div>
+      <div style="font-size:11.5px;font-weight:600;color:#6B7686;margin-top:12px;margin-bottom:4px;">Per branch (stacked)</div>
+      <div style="position:relative;height:132px;"><canvas id="ch-starBranch"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="ctitle">Complaint Category Breakdown</div>
+    <div class="csub">Negative reviews only — ranked by frequency, with month-over-month trend</div>
+    <div id="complaintBars" style="margin-top:14px;display:flex;flex-direction:column;gap:9px;"></div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:6px;">
+      <div>
+        <div class="ctitle">Recent Reviews</div>
+        <div class="csub">Latest own reviews — bilingual, with AI summary, suggested reply &amp; response status</div>
+      </div>
+      <div id="statusSegs" style="display:flex;background:#EEF1F6;border-radius:8px;padding:3px;gap:2px;"></div>
+    </div>
+    <div id="feed" style="max-height:560px;overflow-y:auto;display:flex;flex-direction:column;gap:11px;padding-right:4px;margin-top:10px;"></div>
+  </div>
+</div>
+
+<!-- ==================== DATA ANALYTICS ==================== -->
+<div id="tab-analytics" style="display:none;">
+  <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Data Categorization Analytics</div>
+  <div style="font-size:12.5px;color:#8A93A3;margin-bottom:16px;">Deep-dive on when customers are reviewing Al Wathba Insurance (timestamps from the customer's last review activity).</div>
+
+  <div class="card" style="margin-bottom:16px;">
+    <div class="ctitle">Review Volume — Day × Hour Heatmap</div>
+    <div class="csub" style="margin-bottom:14px;">Darker cells = more reviews posted at that day &amp; hour.</div>
+    <div id="heatHours" style="display:flex;gap:4px;margin-bottom:4px;padding-left:42px;"></div>
+    <div id="heatRows" style="display:flex;flex-direction:column;gap:4px;"></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:11px;color:#8A93A3;">Fewer<div style="display:flex;gap:3px;"><span style="width:16px;height:11px;border-radius:2px;background:rgba(11,42,74,.10);"></span><span style="width:16px;height:11px;border-radius:2px;background:rgba(11,42,74,.35);"></span><span style="width:16px;height:11px;border-radius:2px;background:rgba(11,42,74,.6);"></span><span style="width:16px;height:11px;border-radius:2px;background:rgba(11,42,74,.85);"></span></div>More</div>
+  </div>
+</div>
+
+<!-- ==================== AGENTS & RESPONSE ==================== -->
+<div id="tab-agents" style="display:none;">
+  <div style="display:grid;grid-template-columns:280px 1fr;gap:16px;margin-bottom:16px;">
+    <div class="card" style="display:flex;flex-direction:column;align-items:center;">
+      <div class="ctitle" style="align-self:flex-start;">Response Status</div>
+      <div class="csub" style="align-self:flex-start;">Pending vs posted replies</div>
+      <div style="position:relative;width:190px;height:190px;margin:14px 0 6px;">
+        <canvas id="ch-respRing"></canvas>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;">
+          <div id="respPct" style="font-size:34px;font-weight:700;color:#0B2A4A;line-height:1;">–</div>
+          <div style="font-size:11px;color:#8A93A3;margin-top:3px;">POSTED</div>
+        </div>
+      </div>
+      <div id="respLegend" style="width:100%;display:flex;flex-direction:column;gap:7px;margin-top:6px;"></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;align-items:flex-start;">
+        <div>
+          <div class="ctitle">Reply Time Distribution</div>
+          <div class="csub">Detected reply time vs review logging time, across replied reviews</div>
+        </div>
+        <div style="display:flex;gap:12px;">
+          <div style="text-align:center;background:#F3F6FB;border-radius:10px;padding:9px 16px;"><div id="avgReply" style="font-size:22px;font-weight:700;color:#0B2A4A;">–</div><div style="font-size:10.5px;color:#8A93A3;margin-top:1px;">AVG TIME TO REPLY</div></div>
+          <div style="text-align:center;background:#FBF7EE;border-radius:10px;padding:9px 16px;"><div id="within1h" style="font-size:22px;font-weight:700;color:#9A7B23;">–</div><div style="font-size:10.5px;color:#B79A55;margin-top:1px;">WITHIN 1 HOUR</div></div>
+        </div>
+      </div>
+      <div style="position:relative;height:250px;margin-top:14px;"><canvas id="ch-replyHist"></canvas></div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1.35fr 1fr;gap:16px;">
+    <div class="card" style="height:522px;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;flex-shrink:0;">
+        <div>
+          <div class="ctitle">Agent Performance</div>
+          <div class="csub">Mentions across reviews &amp; average rating where they appear</div>
+        </div>
+        <button id="agentNegBtn" onclick="toggleAgentNeg()" style="border:1px solid #D8DEE9;background:#fff;color:#42506A;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;">Show negative only</button>
+      </div>
+      <div style="overflow:auto;flex:1;min-height:0;">
+        <table>
+          <thead><tr>
+            <th>Agent</th><th style="text-align:right;">Total</th>
+            <th style="text-align:right;color:#2F8F5B;">Pos</th>
+            <th style="text-align:right;color:#C0392B;">Neg</th>
+            <th style="text-align:right;">Ratio</th>
+            <th style="text-align:right;">Avg ★</th>
+          </tr></thead>
+          <tbody id="agentRows"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ctitle">Top 10 Agents by Mentions</div>
+      <div class="csub" style="margin-bottom:12px;">Positive vs negative mention split</div>
+      <div style="position:relative;height:420px;"><canvas id="ch-agentBar"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <div class="ctitle">Agents &amp; Number of Reviews</div>
+    <div class="csub" style="margin-bottom:14px;">Every agent and the total reviews they appear in</div>
+    <div id="agentCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;"></div>
+  </div>
+</div>
+
+<!-- ==================== BRANCHES ==================== -->
+<div id="tab-branches" style="display:none;">
+  <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Branch Comparison</div>
+  <div style="font-size:12.5px;color:#8A93A3;margin-bottom:16px;">Side-by-side performance across all Al Wathba Insurance branches.</div>
+  <div id="branchCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:16px;"></div>
+  <div class="card">
+    <div class="ctitle">Branch Radar — Five Dimensions</div>
+    <div class="csub" style="margin-bottom:12px;">Average rating · response rate · complaint volume · reply speed · positive ratio (normalized 0–100)</div>
+    <div style="position:relative;height:440px;max-width:640px;margin:0 auto;"><canvas id="ch-radar"></canvas></div>
+  </div>
+</div>
+
+<!-- ==================== COMPETITORS ==================== -->
+<div id="tab-competitors" style="display:none;">
+  <div style="font-size:16px;font-weight:600;margin-bottom:4px;">Competitor Intelligence</div>
+  <div style="font-size:12.5px;color:#8A93A3;margin-bottom:14px;">Benchmarking Al Wathba Insurance against UAE insurance competitors (scraped Google reviews).</div>
+  <div id="compTabBar" style="display:flex;gap:4px;border-bottom:1px solid #E2E7F0;margin-bottom:16px;overflow-x:auto;"></div>
+
+  <div id="ctab-rating" class="card">
+    <div class="ctitle">Average Rating per Competitor</div>
+    <div class="csub" style="margin-bottom:12px;">Official all-time Google ratings — Al Wathba Insurance highlighted in gold</div>
+    <div style="position:relative;height:340px;"><canvas id="ch-compRating"></canvas></div>
+  </div>
+  <div id="ctab-volume" style="display:none;">
+    <div class="card" style="margin-bottom:16px;">
+      <div class="ctitle">Total Reviews — All Time</div>
+      <div class="csub" style="margin-bottom:12px;">Official Google review counts per company — Al Wathba Insurance in gold</div>
+      <div style="position:relative;height:340px;"><canvas id="ch-compTotals"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="ctitle">Recent Review Volume Over Time</div>
+      <div class="csub" style="margin-bottom:12px;">Scraped reviews per month, one line per competitor</div>
+      <div style="position:relative;height:360px;"><canvas id="ch-compVolume"></canvas></div>
+    </div>
+  </div>
+  <div id="ctab-vs" class="card" style="display:none;">
+    <div class="ctitle">Al Wathba Insurance vs Each Competitor</div>
+    <div class="csub" style="margin-bottom:12px;">Side-by-side official all-time Google rating</div>
+    <div style="position:relative;height:340px;"><canvas id="ch-compVs"></canvas></div>
+  </div>
+  <div id="ctab-feed" class="card" style="display:none;">
+    <div class="ctitle">Most Recent Competitor Reviews</div>
+    <div class="csub" style="margin-bottom:12px;">Latest scraped reviews across tracked competitors</div>
+    <div id="compFeed" style="display:flex;flex-direction:column;gap:10px;max-height:560px;overflow-y:auto;padding-right:4px;"></div>
+  </div>
+</div>
+
+</div>
+
+<script>
+// ══════════════════ CONFIG ══════════════════
+const DATA_URL = "/api/dashboard-data";
+const REFRESH_MS = 120000;
+
+// design palette
+const C = { nav:'#0B2A4A', navL:'#2E5C8A', navXL:'#7B96B8', gold:'#C9A24B', goldL:'#E4CE93',
+            green:'#2F8F5B', red:'#C0392B', grey:'#9AA3B2', greyXL:'#E7EAF0', ink:'#42506A' };
+const STAR_COLS = ['#C0392B','#D9704A','#E0A94B','#7FA35C','#2F8F5B'];
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+Chart.defaults.font.family = "'IBM Plex Sans','IBM Plex Sans Arabic',sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.color = '#6B7686';
+
+// ══════════════════ STATE ══════════════════
+let DATA = { own: [], competitor: [], placeStats: [] };
+const S = { tab:'overview', compTab:'rating', statusFilter:'all', dateRange:'all',
+            branchSel:{}, dateFrom:'', dateTo:'' };
+const charts = {};
+
+// ══════════════════ HELPERS ══════════════════
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const num = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+const alpha = (hex,a)=>{ const n=parseInt(hex.replace('#',''),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; };
+
+function parseDate(v){
+  if(v==null||v==='') return null;
+  if(typeof v==='number'){ if(v>20000&&v<80000) return new Date(Math.round((v-25569)*86400000)); return null; }
+  const s=String(v).trim();
+  let m=s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if(m) return new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0));
+  m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+  m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?/);
+  if(m) return new Date(+m[3],+m[2]-1,+m[1],+(m[4]||0),+(m[5]||0));
+  const d=new Date(s); return isNaN(d)?null:d;
+}
+const rowDate = r => parseDate(r['Review Date']) || parseDate(r['Logged At']);
+const monthKey = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+const monthLabel = k => MONTH_NAMES[+k.slice(5)-1]+' '+k.slice(2,4);
+const stars = r => '★'.repeat(Math.max(0,Math.min(5,Math.round(num(r)))))+'☆'.repeat(5-Math.max(0,Math.min(5,Math.round(num(r)))));
+const initials = n => String(n||'?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+const isPos = r => String(r['Review Status']||'').toLowerCase()==='positive';
+const isNeg = r => String(r['Review Status']||'').toLowerCase()==='negative';
+const category = r => { const c=r['Reason for Review (AI Summarized)']; return (c&&String(c).trim()&&String(c).trim()!=='N/A')?String(c).trim():null; };
+
+function statusOf(r){
+  if(String(r['Response Status']||'').toLowerCase().includes('posted')) return 'posted';
+  const d=parseDate(r['Logged At']);
+  if(d && (Date.now()-d.getTime())>3600e3) return 'overdue';
+  return 'pending';
+}
+const statusStyle = s => s==='posted' ? {bg:'#E5F3EC',fg:'#2F8F5B',label:'Posted'}
+                    : s==='overdue' ? {bg:'#FCEEED',fg:'#C0392B',label:'Overdue · >1 hr'}
+                    : {bg:'#FBF3E2',fg:'#9A7B23',label:'Pending'};
+
+function replyMinutes(r){
+  const a=parseDate(r['Logged At']), b=parseDate(r['Agent Reply Time']);
+  if(!a||!b) return null;
+  const m=(b-a)/60000; return m>=0?m:null;
+}
+const fmtDur = m => m==null?'–': m<60? Math.round(m)+'<span style="font-size:12px;font-weight:500;color:#8A93A3;"> min</span>'
+                  : (m/60).toFixed(1)+'<span style="font-size:12px;font-weight:500;color:#8A93A3;"> h</span>';
+
+// agent mentions: "Sarah - Positive, Mike - Negative"
+function agentMentions(r){
+  const raw=r['Agent Name']; if(!raw||String(raw).trim()==='N/A') return [];
+  return String(raw).split(',').map(p=>{
+    const m=p.trim().match(/^(.*?)\s*-\s*(Positive|Negative)$/i);
+    return m&&m[1].trim() ? {name:m[1].trim(), pos:/positive/i.test(m[2])} : null;
+  }).filter(Boolean);
+}
+
+function mkChart(id,cfg){
+  if(charts[id]){ try{charts[id].destroy();}catch(e){} delete charts[id]; }
+  const cv=document.getElementById(id); if(!cv) return;
+  charts[id]=new Chart(cv,cfg);
+}
+function gridOpts(extra){
+  return Object.assign({
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ labels:{ boxWidth:11, boxHeight:11, usePointStyle:true, pointStyle:'rectRounded', font:{size:11.5}, padding:14 } },
+      tooltip:{ backgroundColor:C.nav, padding:10, cornerRadius:8, titleFont:{size:12}, bodyFont:{size:12} } },
+    scales:{ x:{ grid:{display:false}, ticks:{font:{size:11}} }, y:{ grid:{color:'#F0F2F6'}, ticks:{font:{size:11}}, border:{display:false} } }
+  }, extra||{});
+}
+
+// ══════════════════ FILTERS ══════════════════
+function inDateFilter(d){
+  if(!d) return true;
+  if(S.dateFrom){ const a=new Date(S.dateFrom); if(d<a) return false; }
+  if(S.dateTo){ const b=new Date(S.dateTo); b.setHours(23,59,59); if(d>b) return false; }
+  if(S.dateFrom||S.dateTo) return true;
+  if(S.dateRange==='all') return true;
+  const now=new Date();
+  if(S.dateRange==='30d') return (now-d)<=30*86400000;
+  if(S.dateRange==='90d') return (now-d)<=90*86400000;
+  if(S.dateRange==='12m') return (now-d)<=366*86400000;
+  if(S.dateRange==='ytd') return d.getFullYear()===now.getFullYear();
+  return true;
+}
+function filteredOwn(){
+  const branches=Object.keys(S.branchSel).filter(b=>S.branchSel[b]);
+  return DATA.own.filter(r=>{
+    if(branches.length && !branches.includes(String(r.Branch||''))) return false;
+    return inDateFilter(rowDate(r));
+  });
+}
+function filteredComp(){ return DATA.competitor.filter(r=>inDateFilter(rowDate(r))); }
+
+function setTab(t){ S.tab=t; document.querySelectorAll('[id^=tab-]').forEach(el=>el.style.display='none');
+  document.getElementById('tab-'+t).style.display=''; renderTabBar(); renderActive(); }
+function setCompTab(t){ S.compTab=t; ['rating','volume','vs','feed'].forEach(k=>document.getElementById('ctab-'+k).style.display=k===t?'':'none');
+  renderCompTabBar(); renderCompetitors(); }
+function setDateRange(v){ S.dateRange=v; S.dateFrom=''; S.dateTo='';
+  document.getElementById('dateFrom').value=''; document.getElementById('dateTo').value=''; renderAll(); }
+function setStatusFilter(v){ S.statusFilter=v; renderFeed(); renderStatusSegs(); }
+function toggleBranch(b){ S.branchSel[b]=!S.branchSel[b]; renderAll(); }
+function toggleAgentNeg(){ S.agentNeg=!S.agentNeg; renderAgentsTab(); }
+function resetFilters(){ S.statusFilter='all'; S.dateRange='all'; S.branchSel={}; S.agentNeg=false; S.dateFrom=''; S.dateTo='';
+  document.getElementById('dateFrom').value=''; document.getElementById('dateTo').value=''; renderAll(); }
+
+document.getElementById('dateFrom').addEventListener('change',e=>{ S.dateFrom=e.target.value; renderAll(); });
+document.getElementById('dateTo').addEventListener('change',e=>{ S.dateTo=e.target.value; renderAll(); });
+
+// Collapse the filter bar on scroll down; bring it back on scroll up.
+// Anti-jitter: (1) require ~50px of sustained scroll in one direction before
+// toggling, (2) lock the listener while the collapse animates — the height
+// change shifts the page and fires scroll events that would otherwise
+// re-toggle it in a loop, (3) throttle via requestAnimationFrame.
+let _lastY = window.scrollY, _acc = 0, _lockUntil = 0, _collapsed = false, _ticking = false;
+function setFilterCollapsed(c){
+  if (_collapsed === c) return;
+  _collapsed = c;
+  const w = document.getElementById('filterWrap');
+  w.style.maxHeight = c ? '0px' : '220px';
+  w.style.opacity = c ? '0' : '1';
+  _lockUntil = performance.now() + 420;   // ignore scroll fallout of the height change
+  _acc = 0;
+}
+window.addEventListener('scroll', () => {
+  if (_ticking) return;
+  _ticking = true;
+  requestAnimationFrame(() => {
+    _ticking = false;
+    const y = window.scrollY, dy = y - _lastY;
+    _lastY = y;
+    if (performance.now() < _lockUntil) return;
+    if (y <= 60) { setFilterCollapsed(false); return; }   // always show near the top
+    if ((dy > 0) !== (_acc > 0)) _acc = 0;                // direction changed → restart
+    _acc += dy;
+    if (_acc > 50 && y > 160) setFilterCollapsed(true);   // sustained downward scroll
+    else if (_acc < -50) setFilterCollapsed(false);       // sustained upward scroll
+  });
+}, { passive: true });
+
+// ══════════════════ HEADER CONTROLS ══════════════════
+function renderTabBar(){
+  const tabs=[['overview','Overview'],['analytics','Data Analytics'],['agents','Agents & Response'],['branches','Branches'],['competitors','Competitors']];
+  document.getElementById('tabBar').innerHTML = tabs.map(([id,l])=>
+    `<button class="tabbtn ${S.tab===id?'on':''}" onclick="setTab('${id}')">${l}</button>`).join('');
+}
+function renderCompTabBar(){
+  const tabs=[['rating','Ratings'],['volume','Volume'],['vs','Head-to-head'],['feed','Recent Feed']];
+  document.getElementById('compTabBar').innerHTML = tabs.map(([id,l])=>
+    `<button class="ctabbtn ${S.compTab===id?'on':''}" onclick="setCompTab('${id}')">${l}</button>`).join('');
+}
+function renderDateSegs(){
+  const segs=[['30d','30d'],['90d','90d'],['12m','12m'],['ytd','YTD'],['all','All']];
+  document.getElementById('dateSegs').innerHTML = segs.map(([id,l])=>
+    `<button class="seg ${S.dateRange===id&&!S.dateFrom&&!S.dateTo?'on':''}" onclick="setDateRange('${id}')">${l}</button>`).join('');
+  const from=S.dateFrom, to=S.dateTo; let lbl='';
+  if(from&&to){ const days=Math.round((new Date(to)-new Date(from))/86400000)+1;
+    lbl = days>0 ? days+' days selected' : 'Invalid range'; }
+  const el=document.getElementById('rangeLabel'); el.textContent=lbl; el.style.color = lbl==='Invalid range'?C.red:C.green;
+}
+function renderBranchChips(){
+  const names=[...new Set(DATA.own.map(r=>String(r.Branch||'').trim()).filter(Boolean))];
+  document.getElementById('branchChips').innerHTML = names.map(b=>
+    `<button class="chip ${S.branchSel[b]?'on':''}" onclick="toggleBranch('${esc(b).replace(/'/g,"\\'")}')">${esc(b)}</button>`).join('');
+}
+function renderStatusSegs(){
+  const segs=[['all','All'],['pending','Pending'],['posted','Posted'],['overdue','Overdue']];
+  document.getElementById('statusSegs').innerHTML = segs.map(([id,l])=>
+    `<button class="seg ${S.statusFilter===id?'on':''}" onclick="setStatusFilter('${id}')" style="font-size:12px;">${l}</button>`).join('');
+}
+
+// ══════════════════ OVERVIEW ══════════════════
+function monthBuckets(rows){
+  const map={};
+  rows.forEach(r=>{ const d=rowDate(r); if(!d) return; const k=monthKey(d);
+    (map[k]=map[k]||{pos:0,neg:0,sum:0,n:0});
+    if(isPos(r)) map[k].pos++; else if(isNeg(r)) map[k].neg++;
+    const rt=num(r.Rating); if(rt>0){ map[k].sum+=rt; map[k].n++; }
+  });
+  const keys=Object.keys(map).sort().slice(-12);
+  return { keys, map };
+}
+
+// SEED + INCREMENT model. The PlaceStats sheet holds manually entered
+// baselines per place: Google's rating + total review count as of the
+// "Updated At" date. The dashboard then adds every scraped review NEWER than
+// that date on top, so the totals keep growing without any writer process.
+function seedPlus(seed, newRows){
+  const rt=num(seed['Google Rating']), c=num(seed['Total Reviews']);
+  if(!(rt>0&&c>0)) return null;
+  const cut=parseDate(seed['Updated At']);
+  let stars=rt*c, count=c;
+  if(cut) newRows.forEach(r=>{
+    const d=rowDate(r), x=num(r.Rating);
+    if(d && d>cut && x>0){ stars+=x; count++; }
+  });
+  return {stars, count};
+}
+// All own locations combined: total = Σ(seed+new), avg = weighted across all.
+function ownGoogleStats(){
+  const seeds=(DATA.placeStats||[]).filter(r=>String(r.Type||'').toLowerCase()==='own');
+  let stars=0, tot=0, locs=0;
+  seeds.forEach(s=>{
+    const place=String(s.Place||'').trim();
+    const mine=DATA.own.filter(r=>String(r.Branch||'').trim()===place);
+    const agg=seedPlus(s, mine);
+    if(agg){ stars+=agg.stars; tot+=agg.count; locs++; }
+  });
+  return tot ? {avg:stars/tot, total:tot, locations:locs} : null;
+}
+function competitorStats(){
+  return (DATA.placeStats||[])
+    .filter(r=>String(r.Type||'').toLowerCase()==='competitor')
+    .map(s=>{
+      const place=String(s.Place||'').trim();
+      const mine=DATA.competitor.filter(r=>String(r['Competitor Name']||'').trim()===place);
+      const agg=seedPlus(s, mine);
+      return agg ? {name:place, rating:agg.stars/agg.count, total:agg.count} : null;
+    })
+    .filter(Boolean);
+}
+
+function renderKPIs(rows){
+  const now=new Date(), tk=monthKey(now);
+  const prev=new Date(now.getFullYear(),now.getMonth()-1,1), pk=monthKey(prev);
+  const inM=k=>rows.filter(r=>{const d=rowDate(r);return d&&monthKey(d)===k;});
+  const thisM=inM(tk), lastM=inM(pk);
+  const pos=rows.filter(isPos).length, neg=rows.filter(isNeg).length, tot=rows.length;
+  const rated=rows.map(r=>num(r.Rating)).filter(n=>n>0);
+  const avg=rated.length?(rated.reduce((a,b)=>a+b,0)/rated.length):0;
+  const avgOf=rs=>{const v=rs.map(r=>num(r.Rating)).filter(n=>n>0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:0;};
+  const avgT=avgOf(thisM), avgL=avgOf(lastM);
+  const mom=avgT&&avgL?avgT-avgL:0;
+  const pend=rows.filter(r=>statusOf(r)!=='posted');
+  const overdue=rows.filter(r=>statusOf(r)==='overdue').length;
+  const ytd=rows.filter(r=>{const d=rowDate(r);return d&&d.getFullYear()===now.getFullYear();}).length;
+  const lastY=rows.filter(r=>{const d=rowDate(r);return d&&d.getFullYear()===now.getFullYear()-1;}).length;
+  const trendPct=lastM.length?Math.round((thisM.length-lastM.length)/lastM.length*100):null;
+
+  const kpis=[
+    {label:'Reviews This Month',value:thisM.length,trend:trendPct==null?'':(trendPct>=0?'▲ '+trendPct+'%':'▼ '+Math.abs(trendPct)+'%'),tc:trendPct==null||trendPct>=0?C.green:C.red,sub:'vs '+lastM.length+' last month',accent:C.nav},
+    {label:'Positive vs Negative',value:tot?Math.round(pos/tot*100)+'/'+Math.round(neg/tot*100):'–',trend:'',tc:C.green,sub:pos+' pos · '+neg+' neg',accent:C.green},
+    (()=>{ const g=ownGoogleStats(); return g
+      ? {label:'Overall Google Rating',value:g.avg.toFixed(1)+' ★',trend:'',tc:C.green,sub:g.total.toLocaleString()+' reviews · '+g.locations+' locations (all-time)',accent:C.gold}
+      : {label:'Overall Google Rating',value:'–',trend:'',tc:C.green,sub:'awaiting place stats (first daily run)',accent:C.gold}; })(),
+    {label:'Pending Replies',value:pend.length,trend:overdue?'⚑ '+overdue+' overdue':'',tc:C.red,sub:'>1 hr flagged red',accent:C.gold},
+    {label:'Reviews YTD',value:ytd,trend:'',tc:C.green,sub:lastY?'vs '+lastY+' last year':'this calendar year',accent:C.nav},
+    {label:'MoM Rating Change',value:(mom>=0?'+':'')+mom.toFixed(1),trend:mom>0?'▲':(mom<0?'▼':''),tc:mom>=0?C.green:C.red,sub:avgL?avgL.toFixed(1)+' → '+avgT.toFixed(1):'insufficient data',accent:C.gold}
+  ];
+  document.getElementById('kpiGrid').innerHTML = kpis.map(k=>`
+    <div style="background:#fff;border:1px solid #E7EAF0;border-radius:14px;padding:16px 16px 15px;box-shadow:0 2px 10px rgba(11,42,74,.05);position:relative;overflow:hidden;">
+      <div style="position:absolute;left:0;top:0;bottom:0;width:4px;background:${k.accent};"></div>
+      <div style="font-size:11px;font-weight:600;color:#6B7686;text-transform:uppercase;letter-spacing:.5px;line-height:1.3;min-height:28px;">${k.label}</div>
+      <div style="display:flex;align-items:baseline;gap:7px;margin-top:8px;">
+        <div style="font-size:27px;font-weight:700;color:#0B2A4A;line-height:1;">${k.value}</div>
+        <div style="font-size:12.5px;font-weight:600;color:${k.tc};">${k.trend}</div>
+      </div>
+      <div style="font-size:11.5px;color:#8A93A3;margin-top:6px;">${k.sub}</div>
+    </div>`).join('');
+}
+
+function renderOverviewCharts(rows){
+  const {keys,map}=monthBuckets(rows);
+  const labels=keys.map(monthLabel);
+  mkChart('ch-volume',{ type:'bar', data:{ labels, datasets:[
+    { label:'Positive', data:keys.map(k=>map[k].pos), backgroundColor:C.green, stack:'s', borderRadius:3, maxBarThickness:34 },
+    { label:'Negative', data:keys.map(k=>map[k].neg), backgroundColor:C.red, stack:'s', borderRadius:3, maxBarThickness:34 },
+    { label:'Avg rating', type:'line', data:keys.map(k=>map[k].n?+(map[k].sum/map[k].n).toFixed(2):null), yAxisID:'y1', borderColor:C.gold, backgroundColor:C.gold, borderWidth:2.5, tension:.35, pointRadius:3, pointBackgroundColor:C.gold }
+  ]}, options: gridOpts({ plugins:{legend:{display:false},tooltip:{backgroundColor:C.nav}}, scales:{ x:{grid:{display:false},stacked:true}, y:{stacked:true,grid:{color:'#F0F2F6'},border:{display:false},title:{display:true,text:'Reviews'},ticks:{precision:0}}, y1:{position:'right',min:1,max:5,grid:{display:false},border:{display:false},title:{display:true,text:'Rating'}} } }) });
+
+  const pos=rows.filter(isPos).length, neg=rows.filter(isNeg).length, tot=pos+neg;
+  const pct=tot?Math.round(pos/tot*100):0;
+  document.getElementById('sentPct').textContent=tot?pct+'%':'–';
+  document.getElementById('sentLegend').innerHTML=`
+    <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;border-bottom:1px dashed #EAEDF3;"><span style="color:${C.green};font-weight:600;">● Positive</span><span style="font-weight:600;">${pos} · ${pct}%</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:12.5px;padding:6px 0;"><span style="color:${C.red};font-weight:600;">● Negative</span><span style="font-weight:600;">${neg} · ${tot?100-pct:0}%</span></div>
+    <div style="font-size:11.5px;color:#8A93A3;margin-top:6px;line-height:1.5;">Across ${tot} classified reviews in the selected range.</div>`;
+  mkChart('ch-sentDonut',{ type:'doughnut', data:{ labels:['Positive','Negative'], datasets:[{ data:[pos,neg], backgroundColor:[C.green,C.red], borderWidth:3, borderColor:'#fff' }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'72%', plugins:{ legend:{display:false}, tooltip:{backgroundColor:C.nav} } } });
+
+  mkChart('ch-sentTrend',{ type:'line', data:{ labels, datasets:[{ label:'% Positive',
+    data:keys.map(k=>{const m=map[k];const t=m.pos+m.neg;return t?Math.round(m.pos/t*100):null;}),
+    borderColor:C.green, backgroundColor:alpha(C.green,.10), fill:true, tension:.4, pointRadius:0, borderWidth:2 }] },
+    options: gridOpts({ plugins:{legend:{display:false},tooltip:{backgroundColor:C.nav}}, scales:{ x:{grid:{display:false},ticks:{font:{size:9},maxRotation:0}}, y:{min:0,max:100,grid:{color:'#F5F6F9'},border:{display:false},ticks:{font:{size:9},callback:v=>v+'%'}} } }) });
+
+  const dist=[1,2,3,4,5].map(s=>rows.filter(r=>Math.round(num(r.Rating))===s).length);
+  mkChart('ch-starDist',{ type:'bar', data:{ labels:['1 ★','2 ★','3 ★','4 ★','5 ★'], datasets:[{ data:dist, backgroundColor:STAR_COLS, borderRadius:5, maxBarThickness:56 }] },
+    options: gridOpts({ plugins:{legend:{display:false},tooltip:{backgroundColor:C.nav}}, scales:{y:{ticks:{precision:0},grid:{color:'#F0F2F6'},border:{display:false}},x:{grid:{display:false}}} }) });
+
+  const bn=[...new Set(rows.map(r=>String(r.Branch||'').trim()).filter(Boolean))];
+  const ds=[1,2,3,4,5].map((st,i)=>({ label:st+'★',
+    data:bn.map(b=>rows.filter(r=>String(r.Branch||'').trim()===b&&Math.round(num(r.Rating))===st).length),
+    backgroundColor:STAR_COLS[i], stack:'st', maxBarThickness:40 }));
+  mkChart('ch-starBranch',{ type:'bar', data:{ labels:bn, datasets:ds },
+    options: gridOpts({ plugins:{legend:{labels:{boxWidth:9,boxHeight:9,font:{size:10}}},tooltip:{backgroundColor:C.nav}}, scales:{ x:{stacked:true,grid:{display:false},ticks:{font:{size:9.5}}}, y:{stacked:true,grid:{color:'#F0F2F6'},border:{display:false},ticks:{precision:0}} } }) });
+}
+
+function renderComplaints(rows){
+  const now=new Date(), tk=monthKey(now), pk=monthKey(new Date(now.getFullYear(),now.getMonth()-1,1));
+  const counts={}, byMonth={};
+  rows.filter(isNeg).forEach(r=>{ const c=category(r); if(!c) return;
+    counts[c]=(counts[c]||0)+1;
+    const d=rowDate(r); if(d){ const k=monthKey(d); (byMonth[c]=byMonth[c]||{}); byMonth[c][k]=(byMonth[c][k]||0)+1; }
+  });
+  const cats=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+  const max=cats.length?counts[cats[0]]:1;
+  document.getElementById('complaintBars').innerHTML = cats.length ? cats.map(c=>{
+    const t=(byMonth[c]&&byMonth[c][tk])||0, p=(byMonth[c]&&byMonth[c][pk])||0;
+    const diff=t-p;
+    const trend=diff>0?'▲ +'+diff:(diff<0?'▼ −'+Math.abs(diff):'—');
+    const tc=diff>0?C.red:(diff<0?C.green:'#8A93A3');
+    return `<div style="display:flex;align-items:center;gap:12px;">
+      <div style="width:150px;font-size:12.5px;font-weight:500;text-align:right;flex-shrink:0;">${esc(c)}</div>
+      <div style="flex:1;background:#F0F2F6;border-radius:6px;height:22px;position:relative;overflow:hidden;">
+        <div style="position:absolute;left:0;top:0;bottom:0;width:${(counts[c]/max*100).toFixed(1)}%;background:linear-gradient(90deg,#123A63,#C0392B);border-radius:6px;"></div>
+      </div>
+      <div style="width:44px;font-size:12.5px;font-weight:700;text-align:right;">${counts[c]}</div>
+      <div style="width:64px;font-size:12px;font-weight:600;color:${tc};text-align:right;">${trend}</div>
+    </div>`;}).join('')
+    : '<div style="font-size:12.5px;color:#8A93A3;">No complaint categories in the selected range 🎉</div>';
+}
+
+function renderFeed(){
+  const rows=filteredOwn().slice()
+    .sort((a,b)=>(parseDate(b['Logged At'])||0)-(parseDate(a['Logged At'])||0));
+  let feed=rows;
+  if(S.statusFilter!=='all') feed=rows.filter(r=>statusOf(r)===S.statusFilter);
+  document.getElementById('feed').innerHTML = feed.slice(0,60).map(r=>{
+    const st=statusStyle(statusOf(r));
+    const posR=isPos(r);
+    const avatar=posR?C.green:(isNeg(r)?C.red:C.gold);
+    const name=r['Customer Name in Google']||'Anonymous';
+    const d=rowDate(r);
+    const meta=[String(r.Branch||'').trim(), d?d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):''].filter(Boolean).join(' · ');
+    const reply = String(r['Owner Reply']||'').trim();
+    const boxLabel = reply ? 'Posted Reply' : 'Suggested Reply';
+    const boxText = reply || String(r['Suggested Reply']||'').trim() || '—';
+    return `<div style="border:1px solid #EAEDF3;border-radius:12px;padding:14px 15px;background:#FCFDFE;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div style="width:34px;height:34px;border-radius:50%;background:${avatar};color:#fff;font-weight:600;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${esc(initials(name))}</div>
+        <div style="min-width:0;">
+          <div style="font-size:13.5px;font-weight:600;" dir="auto">${esc(name)}</div>
+          <div style="font-size:11.5px;color:#8A93A3;">${esc(meta)}</div>
+        </div>
+        <div style="font-size:14px;color:#C9A24B;letter-spacing:1px;margin-left:2px;">${stars(r.Rating)}</div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+          <span style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;background:${st.bg};color:${st.fg};white-space:nowrap;">${st.label}</span>
+        </div>
+      </div>
+      ${r.Review?`<div style="font-size:13px;line-height:1.55;color:#3A4453;margin-top:10px;" dir="auto">${esc(r.Review)}</div>`:''}
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;">
+        <div style="flex:1;min-width:200px;background:#F3F6FB;border-radius:9px;padding:9px 11px;">
+          <div style="font-size:10px;font-weight:700;color:#123A63;text-transform:uppercase;letter-spacing:.6px;">AI Summary · Reason</div>
+          <div style="font-size:12px;color:#42506A;margin-top:3px;line-height:1.45;">${esc(category(r)||(posR?'Positive review':'—'))}</div>
+        </div>
+        <div style="flex:1;min-width:200px;background:#FBF7EE;border-radius:9px;padding:9px 11px;border:1px solid #F0E6CF;">
+          <div style="font-size:10px;font-weight:700;color:#9A7B23;text-transform:uppercase;letter-spacing:.6px;">${boxLabel}</div>
+          <div style="font-size:12px;color:#5C4E2E;margin-top:3px;line-height:1.45;" dir="auto">${esc(boxText)}</div>
+        </div>
+      </div>
+    </div>`;}).join('') || '<div style="font-size:12.5px;color:#8A93A3;padding:10px;">No reviews match the current filters.</div>';
+}
+
+// ══════════════════ DATA ANALYTICS TAB ══════════════════
+function renderAnalyticsTab(){
+  const rows=filteredOwn();
+  const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  // count[day][hour] from the customer's real review timestamp
+  const grid=DAYS.map(()=>Array(24).fill(0));
+  let stamped=0;
+  rows.forEach(r=>{
+    const d=parseDate(r['Customer Last Update'])||parseDate(r['Logged At']);
+    if(!d) return;
+    grid[d.getDay()][d.getHours()]++; stamped++;
+  });
+  // trim to the hour window that actually has data (min span 8–22, like the design)
+  let lo=8, hi=22;
+  for(let h=0;h<24;h++){ if(grid.some(row=>row[h]>0)){ lo=Math.min(lo,h); hi=Math.max(hi,h); } }
+  const hours=[]; for(let h=lo;h<=hi;h++) hours.push(h);
+  const max=Math.max(1,...grid.flat());
+  document.getElementById('heatHours').innerHTML =
+    hours.map(h=>`<div style="flex:1;text-align:center;font-size:9.5px;color:#9AA3B2;">${h}</div>`).join('');
+  document.getElementById('heatRows').innerHTML = DAYS.map((day,di)=>`
+    <div style="display:flex;gap:4px;align-items:center;">
+      <div style="width:38px;font-size:11px;font-weight:600;color:#6B7686;flex-shrink:0;">${day}</div>
+      ${hours.map(h=>{
+        const v=grid[di][h];
+        const bg=v?alpha(C.nav,0.08+0.85*(v/max)):'#F0F2F6';
+        return `<div title="${day} ${h}:00 · ${v} review${v===1?'':'s'}" style="flex:1;height:20px;border-radius:3px;background:${bg};"></div>`;
+      }).join('')}
+    </div>`).join('');
+  if(!stamped){
+    document.getElementById('heatRows').innerHTML =
+      '<div style="font-size:12.5px;color:#8A93A3;">No timestamped reviews in the selected range.</div>';
+    document.getElementById('heatHours').innerHTML='';
+  }
+}
+
+// ══════════════════ AGENTS TAB ══════════════════
+function agentStats(rows){
+  const map={};
+  rows.forEach(r=>agentMentions(r).forEach(m=>{
+    (map[m.name]=map[m.name]||{pos:0,neg:0,sum:0,n:0});
+    if(m.pos) map[m.name].pos++; else map[m.name].neg++;
+    const rt=num(r.Rating); if(rt>0){ map[m.name].sum+=rt; map[m.name].n++; }
+  }));
+  return Object.entries(map).map(([name,v])=>({ name, pos:v.pos, neg:v.neg, total:v.pos+v.neg,
+    rating:v.n?v.sum/v.n:0 })).sort((a,b)=>b.total-a.total);
+}
+
+function renderAgentsTab(){
+  const rows=filteredOwn();
+  const posted=rows.filter(r=>statusOf(r)==='posted').length;
+  const pending=rows.length-posted;
+  const overdue=rows.filter(r=>statusOf(r)==='overdue').length;
+  const pct=rows.length?Math.round(posted/rows.length*100):0;
+  document.getElementById('respPct').textContent=rows.length?pct+'%':'–';
+  document.getElementById('respLegend').innerHTML=`
+    <div style="display:flex;justify-content:space-between;font-size:12.5px;"><span style="color:${C.green};font-weight:600;">● Posted</span><span style="font-weight:600;">${posted.toLocaleString()}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:12.5px;"><span style="color:${C.gold};font-weight:600;">● Pending</span><span style="font-weight:600;">${pending.toLocaleString()}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:12.5px;background:#FCEEED;border:1px solid #F3D3CF;border-radius:8px;padding:7px 10px;margin-top:2px;"><span style="color:${C.red};font-weight:600;">⚑ Overdue (&gt;1 hr)</span><span style="font-weight:700;color:${C.red};">${overdue}</span></div>`;
+  mkChart('ch-respRing',{ type:'doughnut', data:{ labels:['Posted','Pending'], datasets:[{ data:[posted,pending], backgroundColor:[C.green,C.gold], borderWidth:3, borderColor:'#fff' }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'74%', plugins:{legend:{display:false},tooltip:{backgroundColor:C.nav}} } });
+
+  const times=rows.map(replyMinutes).filter(m=>m!=null);
+  const buckets=[['0–10m',0,10],['10–30m',10,30],['30–60m',30,60],['1–2h',60,120],['2–6h',120,360],['6–24h',360,1440],['>24h',1440,Infinity]];
+  const bdata=buckets.map(([,a,b])=>times.filter(m=>m>=a&&m<b).length);
+  const avg=times.length?times.reduce((a,b)=>a+b,0)/times.length:null;
+  const within=times.length?Math.round(times.filter(m=>m<=60).length/times.length*100):null;
+  document.getElementById('avgReply').innerHTML=fmtDur(avg);
+  document.getElementById('within1h').innerHTML=within==null?'–':within+'<span style="font-size:12px;font-weight:500;color:#B79A55;">%</span>';
+  mkChart('ch-replyHist',{ type:'bar', data:{ labels:buckets.map(b=>b[0]), datasets:[{ data:bdata, backgroundColor:C.nav, borderRadius:5, maxBarThickness:52 }] },
+    options: gridOpts({ plugins:{legend:{display:false},tooltip:{backgroundColor:C.nav}}, scales:{x:{grid:{display:false}},y:{grid:{color:'#F0F2F6'},border:{display:false},title:{display:true,text:'Replies'},ticks:{precision:0}}} }) });
+
+  let agents=agentStats(rows);
+  const btn=document.getElementById('agentNegBtn');
+  if(S.agentNeg){ agents=agents.filter(a=>a.neg>0).sort((a,b)=>b.neg-a.neg);
+    btn.textContent='✓ Negative mentions only'; btn.style.background=C.red; btn.style.color='#fff'; btn.style.borderColor=C.red; }
+  else { btn.textContent='Show negative only'; btn.style.background='#fff'; btn.style.color='#42506A'; btn.style.borderColor='#D8DEE9'; }
+
+  document.getElementById('agentRows').innerHTML = agents.map(a=>{
+    const rc=a.rating>=4?C.green:(a.rating>=3.6?C.gold:C.red);
+    return `<tr>
+      <td style="font-weight:500;">${esc(a.name)}</td>
+      <td style="text-align:right;font-weight:600;">${a.total}</td>
+      <td style="text-align:right;color:${C.green};">${a.pos}</td>
+      <td style="text-align:right;color:${C.red};">${a.neg}</td>
+      <td style="text-align:right;">${(a.pos/Math.max(1,a.neg)).toFixed(1)}:1</td>
+      <td style="text-align:right;font-weight:600;color:${rc};">${a.rating?a.rating.toFixed(1):'–'}</td>
+    </tr>`;}).join('') || '<tr><td colspan="6" style="color:#8A93A3;">No agent mentions in the selected range.</td></tr>';
+
+  const top=agentStats(rows).slice(0,10);
+  mkChart('ch-agentBar',{ type:'bar', data:{ labels:top.map(a=>a.name), datasets:[
+    {label:'Positive',data:top.map(a=>a.pos),backgroundColor:C.nav,stack:'a',maxBarThickness:22},
+    {label:'Negative',data:top.map(a=>a.neg),backgroundColor:C.red,stack:'a',maxBarThickness:22}
+  ]}, options: gridOpts({ indexAxis:'y', plugins:{legend:{labels:{boxWidth:10,boxHeight:10}},tooltip:{backgroundColor:C.nav}}, scales:{ x:{stacked:true,grid:{color:'#F0F2F6'},border:{display:false},ticks:{precision:0}}, y:{stacked:true,grid:{display:false},ticks:{font:{size:11}}} } }) });
+
+  document.getElementById('agentCards').innerHTML = agentStats(rows).map(a=>`
+    <div style="display:flex;align-items:center;gap:11px;border:1px solid #EAEDF3;border-radius:11px;padding:11px 13px;background:#FCFDFE;">
+      <div style="width:34px;height:34px;border-radius:50%;background:${C.nav};color:#fff;font-weight:600;font-size:12.5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${esc(initials(a.name))}</div>
+      <div style="min-width:0;">
+        <div style="font-size:13px;font-weight:600;line-height:1.2;">${esc(a.name)}</div>
+        <div style="font-size:12px;color:#8A93A3;margin-top:2px;">${a.total} review${a.total===1?'':'s'}</div>
+      </div>
+    </div>`).join('') || '<div style="font-size:12.5px;color:#8A93A3;">No agent mentions yet.</div>';
+}
+
+// ══════════════════ BRANCHES TAB ══════════════════
+function renderBranchesTab(){
+  const rows=filteredOwn();
+  const names=[...new Set(rows.map(r=>String(r.Branch||'').trim()).filter(Boolean))];
+  const stats=names.map(b=>{
+    const br=rows.filter(r=>String(r.Branch||'').trim()===b);
+    const rated=br.map(r=>num(r.Rating)).filter(n=>n>0);
+    const pos=br.filter(isPos).length, neg=br.filter(isNeg).length, cls=pos+neg;
+    const cats={}; br.filter(isNeg).forEach(r=>{const c=category(r); if(c) cats[c]=(cats[c]||0)+1;});
+    const top=Object.keys(cats).sort((a,b)=>cats[b]-cats[a])[0]||'—';
+    const times=br.map(replyMinutes).filter(m=>m!=null);
+    const avgReply=times.length?times.reduce((a,b)=>a+b,0)/times.length:null;
+    const posted=br.filter(r=>statusOf(r)==='posted').length;
+    return { name:b, total:br.length,
+      rating:rated.length?rated.reduce((a,b)=>a+b,0)/rated.length:0,
+      posPct:cls?Math.round(pos/cls*100):0, negPct:cls?Math.round(neg/cls*100):0,
+      negCount:neg, topComplaint:top, avgReply, respRate:br.length?posted/br.length*100:0 };
+  });
+
+  document.getElementById('branchCards').innerHTML = stats.map(b=>`
+    <div style="background:#fff;border:1px solid #E7EAF0;border-radius:14px;padding:16px;box-shadow:0 2px 10px rgba(11,42,74,.05);">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-size:14px;font-weight:600;">${esc(b.name)}</div>
+        <div style="font-size:19px;font-weight:700;color:${C.gold};">${b.rating?b.rating.toFixed(1):'–'}<span style="font-size:12px;color:${C.gold};">★</span></div>
+      </div>
+      <div style="font-size:11.5px;color:#8A93A3;margin-top:2px;">${b.total} reviews</div>
+      <div style="display:flex;height:8px;border-radius:5px;overflow:hidden;margin-top:12px;background:#F0F2F6;">
+        <div style="width:${b.posPct}%;background:${C.green};"></div>
+        <div style="width:${b.negPct}%;background:${C.red};"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:5px;color:#8A93A3;"><span style="color:${C.green};font-weight:600;">${b.posPct}% pos</span><span style="color:${C.red};font-weight:600;">${b.negPct}% neg</span></div>
+      <div style="border-top:1px solid #F0F2F6;margin-top:12px;padding-top:10px;font-size:12px;line-height:1.7;">
+        <div style="display:flex;justify-content:space-between;"><span style="color:#8A93A3;">Top complaint</span><span style="font-weight:600;">${esc(b.topComplaint)}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:#8A93A3;">Avg response</span><span style="font-weight:600;">${b.avgReply!=null?(b.avgReply<60?Math.round(b.avgReply)+' min':(b.avgReply/60).toFixed(1)+' h'):'—'}</span></div>
+      </div>
+    </div>`).join('') || '<div style="font-size:12.5px;color:#8A93A3;">No branch data in the selected range.</div>';
+
+  const maxNeg=Math.max(1,...stats.map(s=>s.negCount));
+  const maxReply=Math.max(1,...stats.map(s=>s.avgReply||0));
+  const cols=[C.nav,C.gold,C.green,C.red,C.navXL,C.navL];
+  const ds=stats.map((b,i)=>({ label:b.name,
+    data:[ b.rating/5*100, b.respRate, 100-(b.negCount/maxNeg*100),
+           b.avgReply!=null?100-(b.avgReply/maxReply*100):50, b.posPct ].map(v=>+v.toFixed(1)),
+    borderColor:cols[i%cols.length], backgroundColor:alpha(cols[i%cols.length],.12), borderWidth:2, pointRadius:3, pointBackgroundColor:cols[i%cols.length] }));
+  mkChart('ch-radar',{ type:'radar', data:{ labels:['Avg rating','Response rate','Complaint volume','Reply speed','Positive ratio'], datasets:ds },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{boxWidth:10,boxHeight:10,padding:12}},tooltip:{backgroundColor:C.nav}}, scales:{ r:{ min:0,max:100,angleLines:{color:'#E7EAF0'},grid:{color:'#E7EAF0'},pointLabels:{font:{size:11.5,weight:'500'},color:'#42506A'},ticks:{display:false,stepSize:20} } } } });
+}
+
+// ══════════════════ COMPETITORS TAB ══════════════════
+function renderCompetitors(){
+  const own=filteredOwn(), comp=filteredComp();
+  const rated=own.map(r=>num(r.Rating)).filter(n=>n>0);
+  const ourAvg=rated.length?rated.reduce((a,b)=>a+b,0)/rated.length:0;
+  const byComp={};
+  comp.forEach(r=>{ const c=String(r['Competitor Name']||'').trim()||'Unknown';
+    (byComp[c]=byComp[c]||[]).push(r); });
+  const compNames=Object.keys(byComp);
+  const compAvg=n=>{ const v=byComp[n].map(r=>num(r.Rating)).filter(x=>x>0); return v.length?v.reduce((a,b)=>a+b,0)/v.length:0; };
+
+  const ps=competitorStats();               // official all-time competitor stats
+  const g=ownGoogleStats();                 // official all-time own aggregate
+  const ourOfficial=g?g.avg:ourAvg;         // fall back to scraped avg until PlaceStats fills
+
+  if(S.compTab==='rating'){
+    const rows = ps.length
+      ? [['Al Wathba Insurance',ourOfficial,true],...ps.map(p=>[p.name,p.rating,false])].sort((a,b)=>b[1]-a[1])
+      : [['Al Wathba Insurance',ourAvg,true],...compNames.map(n=>[n,compAvg(n),false])].sort((a,b)=>b[1]-a[1]);
+    mkChart('ch-compRating',{ type:'bar', data:{ labels:rows.map(r=>r[0]), datasets:[{ data:rows.map(r=>+r[1].toFixed(2)), backgroundColor:rows.map(r=>r[2]?C.gold:C.grey), borderRadius:5, maxBarThickness:34 }] },
+      options: gridOpts({ indexAxis:'y', plugins:{legend:{display:false},tooltip:{backgroundColor:C.nav}}, scales:{ x:{min:0,max:5,grid:{color:'#F0F2F6'},border:{display:false}}, y:{grid:{display:false}} } }) });
+  }
+  if(S.compTab==='volume'){
+    // All-time totals (official Google counts). Falls back to scraped counts.
+    const trows = ps.length
+      ? [['Al Wathba Insurance',(g?g.total:own.length),true],...ps.map(p=>[p.name,p.total,false])].sort((a,b)=>b[1]-a[1])
+      : [['Al Wathba Insurance',own.length,true],...compNames.map(n=>[n,byComp[n].length,false])].sort((a,b)=>b[1]-a[1]);
+    mkChart('ch-compTotals',{ type:'bar', data:{ labels:trows.map(r=>r[0]), datasets:[{ data:trows.map(r=>r[1]), backgroundColor:trows.map(r=>r[2]?C.gold:C.grey), borderRadius:5, maxBarThickness:34 }] },
+      options: gridOpts({ indexAxis:'y', plugins:{legend:{display:false},tooltip:{backgroundColor:C.nav}}, scales:{ x:{grid:{color:'#F0F2F6'},border:{display:false},ticks:{precision:0}}, y:{grid:{display:false}} } }) });
+
+    const allKeys=new Set();
+    const bucket=rows=>{ const m={}; rows.forEach(r=>{const d=rowDate(r); if(d){const k=monthKey(d); m[k]=(m[k]||0)+1; allKeys.add(k);}}); return m; };
+    const ownB=bucket(own), compBs=compNames.map(n=>bucket(byComp[n]));
+    const keys=[...allKeys].sort().slice(-12);
+    const cols=[C.nav,C.navL,'#8A94A6',C.red,C.navXL];
+    mkChart('ch-compVolume',{ type:'line', data:{ labels:keys.map(monthLabel), datasets:[
+      { label:'Al Wathba Insurance', data:keys.map(k=>ownB[k]||0), borderColor:C.gold, backgroundColor:C.gold, borderWidth:3, tension:.35, pointRadius:0 },
+      ...compNames.map((n,i)=>({ label:n, data:keys.map(k=>compBs[i][k]||0), borderColor:cols[i%cols.length], backgroundColor:cols[i%cols.length], borderWidth:2, tension:.35, pointRadius:0 }))
+    ]}, options: gridOpts({ plugins:{legend:{labels:{boxWidth:10,boxHeight:10}},tooltip:{backgroundColor:C.nav}}, scales:{y:{ticks:{precision:0},grid:{color:'#F0F2F6'},border:{display:false}},x:{grid:{display:false}}} }) });
+  }
+  if(S.compTab==='vs'){
+    const labels = ps.length ? ps.map(p=>p.name) : compNames;
+    const compData = ps.length ? ps.map(p=>+p.rating.toFixed(2)) : compNames.map(n=>+compAvg(n).toFixed(2));
+    mkChart('ch-compVs',{ type:'bar', data:{ labels, datasets:[
+      {label:'Al Wathba Insurance',data:labels.map(()=>+ourOfficial.toFixed(2)),backgroundColor:C.gold,maxBarThickness:26,borderRadius:4},
+      {label:'Competitor',data:compData,backgroundColor:C.grey,maxBarThickness:26,borderRadius:4}
+    ]}, options: gridOpts({ plugins:{legend:{labels:{boxWidth:10,boxHeight:10}},tooltip:{backgroundColor:C.nav}}, scales:{x:{grid:{display:false}},y:{min:0,max:5,grid:{color:'#F0F2F6'},border:{display:false}}} }) });
+  }
+  if(S.compTab==='feed'){
+    const palette=[C.nav,'#123A63','#8A94A6',C.red,C.navL];
+    const colorOf=n=>palette[compNames.indexOf(n)%palette.length]||'#8A94A6';
+    const feed=comp.slice().sort((a,b)=>(rowDate(b)||0)-(rowDate(a)||0)).slice(0,40);
+    document.getElementById('compFeed').innerHTML = feed.map(r=>{
+      const cn=String(r['Competitor Name']||'').trim()||'Unknown';
+      return `<div style="border:1px solid #EAEDF3;border-radius:11px;padding:12px 14px;background:#FAFBFC;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span style="font-size:11px;font-weight:700;color:#fff;background:${colorOf(cn)};padding:3px 9px;border-radius:5px;">${esc(cn)}</span>
+          <span style="font-size:13px;font-weight:600;" dir="auto">${esc(r['Reviewer Name']||'Anonymous')}</span>
+          <span style="font-size:11.5px;color:#8A93A3;">· ${esc(String(r.Branch||''))}</span>
+          <span style="font-size:13px;color:#C9A24B;letter-spacing:1px;margin-left:auto;">${stars(r.Rating)}</span>
+        </div>
+        ${r.Review?`<div style="font-size:12.5px;line-height:1.5;color:#42506A;margin-top:8px;" dir="auto">${esc(r.Review)}</div>`:''}
+      </div>`;}).join('') || '<div style="font-size:12.5px;color:#8A93A3;">No competitor reviews in the selected range.</div>';
+  }
+}
+
+// ══════════════════ RENDER ORCHESTRATION ══════════════════
+function renderActive(){
+  const rows=filteredOwn();
+  if(S.tab==='overview'){ renderKPIs(rows); renderOverviewCharts(rows); renderComplaints(rows); renderFeed(); renderStatusSegs(); }
+  if(S.tab==='analytics') renderAnalyticsTab();
+  if(S.tab==='agents') renderAgentsTab();
+  if(S.tab==='branches') renderBranchesTab();
+  if(S.tab==='competitors'){ renderCompTabBar(); renderCompetitors(); }
+}
+function renderAll(){ renderDateSegs(); renderBranchChips(); renderTabBar(); renderActive(); }
+
+// ══════════════════ DATA LOAD ══════════════════
+async function load(){
+  const lbl=document.getElementById('syncLabel'), dot=document.getElementById('syncDot');
+  try{
+    const res=await fetch(DATA_URL,{cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const j=await res.json();
+    if(j.error) throw new Error(j.error);
+    // Rating>0 filters out the zero-filled spill rows the =SORT sheet emits
+    // for not-yet-populated cells (every real Google review is >= 1 star).
+    DATA.own=(j.own||[]).filter(r=>num(r.Rating)>0);
+    DATA.competitor=j.competitor||[];
+    DATA.placeStats=j.placeStats||[];
+    dot.style.background='#3FD37F';
+    lbl.textContent='Synced · '+new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})+' · '+DATA.own.length+' reviews';
+    renderAll();
+  }catch(e){
+    dot.style.background='#C0392B';
+    lbl.textContent='Sync error: '+e.message;
+  }
+}
+load();
+setInterval(load, REFRESH_MS);
+</script>
+</body>
+</html>

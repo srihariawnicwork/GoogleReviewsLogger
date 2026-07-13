@@ -1,0 +1,1 @@
+[Review Amended] {{ $('Parse and Build Row').first().json['Customer Name in Google'] }} changed their review — now {{ $('Parse and Build Row').first().json.Rating }}★ (was {{ $('Parse and Build Row').first().json.previous_rating }}★) — {{ $('Parse and Build Row').first().json.Branch }}

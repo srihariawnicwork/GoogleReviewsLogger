@@ -12,8 +12,22 @@
       "name": "Dashboard Data",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [200, 300],
+      "position": [180, 300],
       "webhookId": "dashboard-data-webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            { "value1": "={{ $json.query.token }}", "operation": "equal", "value2": "REPLACE_WITH_DASHBOARD_TOKEN" }
+          ]
+        }
+      },
+      "id": "node-dash-auth",
+      "name": "Check Token",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [400, 300]
     },
     {
       "parameters": {
@@ -28,7 +42,7 @@
       "name": "Get Own Rows",
       "type": "n8n-nodes-base.microsoftExcel",
       "typeVersion": 2,
-      "position": [440, 200],
+      "position": [640, 200],
       "credentials": { "microsoftExcelOAuth2Api": { "id": "REPLACE_MS365_CREDENTIAL_ID", "name": "MS365 Account" } }
     },
     {
@@ -44,7 +58,7 @@
       "name": "Get Competitor Rows",
       "type": "n8n-nodes-base.microsoftExcel",
       "typeVersion": 2,
-      "position": [440, 420],
+      "position": [640, 420],
       "credentials": { "microsoftExcelOAuth2Api": { "id": "REPLACE_MS365_CREDENTIAL_ID", "name": "MS365 Account" } }
     },
     {
@@ -55,7 +69,7 @@
       "name": "Build JSON",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [700, 300]
+      "position": [900, 300]
     },
     {
       "parameters": {
@@ -74,23 +88,41 @@
       "name": "Respond JSON",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [940, 300]
+      "position": [1140, 220]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": \"unauthorized\" } }}",
+        "options": {
+          "responseCode": 401,
+          "responseHeaders": {
+            "entries": [ { "name": "Access-Control-Allow-Origin", "value": "*" } ]
+          }
+        }
+      },
+      "id": "node-dash-deny",
+      "name": "Deny",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [640, 560]
     }
   ],
   "connections": {
-    "Dashboard Data": {
-      "main": [[
-        { "node": "Get Own Rows", "type": "main", "index": 0 },
-        { "node": "Get Competitor Rows", "type": "main", "index": 0 }
-      ]]
+    "Dashboard Data": { "main": [[ { "node": "Check Token", "type": "main", "index": 0 } ]] },
+    "Check Token": {
+      "main": [
+        [ { "node": "Get Own Rows", "type": "main", "index": 0 }, { "node": "Get Competitor Rows", "type": "main", "index": 0 } ],
+        [ { "node": "Deny", "type": "main", "index": 0 } ]
+      ]
     },
-    "Get Own Rows": { "main": [[{ "node": "Build JSON", "type": "main", "index": 0 }]] },
-    "Get Competitor Rows": { "main": [[{ "node": "Build JSON", "type": "main", "index": 0 }]] },
-    "Build JSON": { "main": [[{ "node": "Respond JSON", "type": "main", "index": 0 }]] }
+    "Get Own Rows": { "main": [[ { "node": "Build JSON", "type": "main", "index": 0 } ]] },
+    "Get Competitor Rows": { "main": [[ { "node": "Build JSON", "type": "main", "index": 0 } ]] },
+    "Build JSON": { "main": [[ { "node": "Respond JSON", "type": "main", "index": 0 } ]] }
   },
   "active": false,
   "settings": { "executionOrder": "v1" },
-  "versionId": "1.0.0",
+  "versionId": "1.1.0",
   "meta": { "instanceId": "awnic-dashboard-data" },
   "tags": []
 }

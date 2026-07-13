@@ -1,0 +1,1 @@
+[Reply Needed] {{ $('Parse and Build Row').first().json.Rating }}★ Positive Review — {{ $('Parse and Build Row').first().json.Branch }} — {{ $('Parse and Build Row').first().json['Logged At'] }}

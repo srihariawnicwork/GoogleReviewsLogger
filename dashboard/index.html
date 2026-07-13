@@ -74,7 +74,11 @@
 </main>
 <script>
 // ── CONFIG ───────────────────────────────────────────────────────────────
-const DATA_URL = "REPLACE_WITH_N8N/webhook/dashboard-data"; // e.g. http://VM_IP:5678/webhook/dashboard-data
+// Same-origin behind one domain (Cloudflare Tunnel + Access) — RECOMMENDED:
+//   const DATA_URL = "/webhook/dashboard-data";
+// Cross-origin (Vercel page + tunneled n8n) — must be HTTPS and include token:
+//   const DATA_URL = "https://reviews.example.com/webhook/dashboard-data?token=YOUR_TOKEN";
+const DATA_URL = "REPLACE_WITH_ENDPOINT/webhook/dashboard-data?token=REPLACE_WITH_DASHBOARD_TOKEN";
 const REFRESH_MS = 120000; // auto-refresh every 2 minutes
 
 const charts = {};

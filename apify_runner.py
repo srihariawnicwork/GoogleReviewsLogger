@@ -29,6 +29,16 @@ LOCAL_TZ = timezone(timedelta(hours=TZ_OFFSET_HOURS))
 # Pause between webhook POSTs so the downstream Groq call stays under the API's
 # rate limit (free tier ~30 req/min). 4s => ~15 reviews/min, comfortably safe.
 POST_DELAY_S = float(os.getenv("POST_DELAY_S", "4"))
+
+# Tracks which places already had their PLACE STATS (official Google rating +
+# total review count) forwarded today — sent once per day, not on all 96 runs.
+STATS_STATE_PATH = Path(os.getenv("PLACE_STATS_STATE_PATH", "./place_stats_state.json"))
+
+# OFF by default: place stats are seeded MANUALLY in the PlaceStats sheet and
+# the dashboard increments them with each new scraped review. Only set this to
+# true if the n8n "Is Place Stats?" branch exists — without it, these payloads
+# would fall through to the competitor path and append junk rows.
+SEND_PLACE_STATS = os.getenv("SEND_PLACE_STATS", "false").lower() == "true"
  
 # One entry per place. Keep in sync with your monitoring list.
 # mode "own" -> Groq analysis + notifications; anything else -> competitor log.
@@ -259,6 +269,67 @@ def build_payload(item: dict, location: dict) -> dict:
     }
  
  
+# ---------------------------------------------------------------------------
+# PLACE STATS — the place's OFFICIAL all-time Google rating + total review
+# count ride along in the actor's output, so this costs no extra scraping.
+# Forwarded once per day per place as mode="place_stats"; n8n upserts them
+# into the PlaceStats sheet, which feeds the dashboard's all-time KPIs.
+# ---------------------------------------------------------------------------
+def extract_place_stats(items: list) -> dict | None:
+    """Pull place-level rating/review-count from an actor item. Actors name
+    these fields differently, so several candidate keys are tried; if none
+    match, the item's keys are logged so the right key can be added."""
+    if not items:
+        return None
+    it = items[0]
+    place = it.get("place") or it.get("placeInfo") or {}
+    rating = (place.get("rating") or place.get("totalScore")
+              or it.get("placeRating") or it.get("place_rating")
+              or it.get("totalScore") or it.get("place_rating_avg"))
+    count = (place.get("reviewsCount") or place.get("userRatingCount")
+             or place.get("reviewCount") or it.get("placeReviewsCount")
+             or it.get("place_reviews_count") or it.get("reviewsCount"))
+    if rating is None or count is None:
+        log.warning("  place stats not found in actor output; top-level keys: %s",
+                    sorted(it.keys()))
+        return None
+    try:
+        return {"rating": float(rating), "count": int(count)}
+    except (TypeError, ValueError):
+        return None
+
+
+def maybe_send_place_stats(items: list, location: dict) -> None:
+    """Send this place's official rating/count to n8n, at most once per day.
+    No-op unless SEND_PLACE_STATS=true (manual-seed mode is the default)."""
+    if not SEND_PLACE_STATS:
+        return
+    today = datetime.now(LOCAL_TZ).strftime("%Y-%m-%d")
+    try:
+        state = json.loads(STATS_STATE_PATH.read_text()) if STATS_STATE_PATH.exists() else {}
+    except (json.JSONDecodeError, OSError):
+        state = {}
+    key = location["department"]
+    if state.get(key) == today:
+        return
+    stats = extract_place_stats(items)
+    if not stats:
+        return
+    payload = {
+        "mode": "place_stats",
+        "Place": key,
+        "Type": "own",
+        "Google Rating": stats["rating"],
+        "Total Reviews": stats["count"],
+        "Updated At": datetime.now(LOCAL_TZ).strftime("%Y-%m-%d %H:%M:00"),
+    }
+    if post_to_webhook(payload):
+        state[key] = today
+        STATS_STATE_PATH.write_text(json.dumps(state, indent=2, sort_keys=True))
+        log.info("  -> place stats sent for %s (%.1f★ · %s reviews all-time)",
+                 key, stats["rating"], stats["count"])
+
+
 def post_to_webhook(payload: dict) -> bool:
     ok = False
     try:
@@ -280,6 +351,7 @@ def post_to_webhook(payload: dict) -> bool:
 # ---------------------------------------------------------------------------
 def process_location(location: dict, seen: dict, now_str: str) -> int:
     items = run_actor_for_location(location)
+    maybe_send_place_stats(items, location)
     sent = 0
     for item in items:
         payload = build_payload(item, location)

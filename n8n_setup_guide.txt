@@ -1,0 +1,631 @@
+# n8n Workflow Setup Guide — Google Review Reputation System
+# ============================================================
+# Two workflows: MAIN (event-driven) + REPORT (scheduled)
+# Estimated setup time: 90 minutes
+# n8n version tested: 1.x (Cloud or Self-Hosted)
+# ============================================================
+
+
+# ─────────────────────────────────────────────────────────────
+# PRE-FLIGHT: CREDENTIALS TO CREATE FIRST
+# ─────────────────────────────────────────────────────────────
+
+Before building any nodes, create these credentials in
+n8n → Settings → Credentials:
+
+1. GROQ API
+   Type: Header Auth
+   Name: Groq API
+   Header Name: Authorization
+   Header Value: Bearer <your-groq-api-key>
+   (Get key from: console.groq.com)
+
+2. GMAIL
+   Type: Google OAuth2
+   Name: Gmail Account
+   Follow n8n's Google OAuth2 guide. Scopes needed:
+   https://www.googleapis.com/auth/gmail.send
+
+3. MICROSOFT 365 (for Excel Online)
+   Type: Microsoft OAuth2
+   Name: MS365 Account
+   Follow n8n's Microsoft OAuth2 guide. Scopes:
+   Files.ReadWrite, Files.ReadWrite.All
+
+
+# ─────────────────────────────────────────────────────────────
+# WORKFLOW 1: MAIN REVIEW PROCESSING
+# ─────────────────────────────────────────────────────────────
+
+Create a new workflow. Name it: "Google Review Processor"
+
+
+# ─────────────────────────────────────────────────────────────
+# NODE 1 — Webhook Trigger
+# ─────────────────────────────────────────────────────────────
+Type: Webhook
+Name: New Review Received
+
+CONFIGURATION:
+  HTTP Method:      POST
+  Path:             new-review
+  Authentication:   None (or Header Auth for production)
+  Response Mode:    Immediately
+  Response Code:    200
+  Response Body:    {"status": "received"}
+
+After saving, copy the Production Webhook URL.
+Paste it into your Python scraper's .env as N8N_WEBHOOK_URL.
+
+TEST:
+  Use the "Test URL" (not Production) during setup.
+  Send a test POST with a sample payload from the scraper.
+  Confirm the node shows green and the data appears in Output.
+
+
+# ─────────────────────────────────────────────────────────────
+# NODE 2 — HTTP Request to Groq
+# ─────────────────────────────────────────────────────────────
+Type: HTTP Request
+Name: Analyze Review (Groq)
+
+CONFIGURATION:
+  Method:           POST
+  URL:              https://api.groq.com/openai/v1/chat/completions
+  Authentication:   Predefined Credential Type → Header Auth → "Groq API"
+
+  Send Headers:     ON
+    Content-Type:   application/json
+
+  Send Body:        ON
+  Body Type:        JSON
+
+  Body (paste exactly, the expressions pull from Node 1 output):
+  {
+    "model": "llama-3-70b-8192",
+    "temperature": 0,
+    "max_tokens": 300,
+    "response_format": { "type": "json_object" },
+    "messages": [
+      {
+        "role": "system",
+        "content": "<PASTE ENTIRE CONTENTS OF groq_system_prompt.txt HERE>"
+      },
+      {
+        "role": "user",
+        "content": "Stars: {{ $json[\"Rating\"] }}\nReview: {{ $json[\"Review\"] }}"
+      }
+    ]
+  }
+
+  NOTE: In the JSON body editor, switch to "Expression" mode for the
+  user content field so the {{ }} expressions are evaluated.
+  temperature: 0 is critical — eliminates randomness in JSON output.
+
+TIMEOUT: 30 seconds
+
+
+# ─────────────────────────────────────────────────────────────
+# NODE 3 — Code Node: Parse Groq Response + Merge Fields
+# ─────────────────────────────────────────────────────────────
+Type: Code
+Name: Parse LLM Output
+Language: JavaScript
+
+CODE:
+// Pull the raw LLM JSON string from Groq's response
+const groqResponse = $input.item.json.choices[0].message.content;
+
+// Parse it — Groq with json_object mode should always be valid JSON
+let llm;
+try {
+  llm = JSON.parse(groqResponse);
+} catch (e) {
+  // Fallback if Groq somehow returns malformed JSON
+  llm = {
+    sentiment: "NEGATIVE",
+    agent_name: "N/A",
+    complaint_category: "Other",
+    details_provided: false,
+    reason_for_review: "parse error",
+    review_status: "Negative"
+  };
+}
+
+// Pull the original scraper payload from Node 1 (two nodes back)
+// In n8n you reference previous nodes by name:
+const original = $('New Review Received').item.json;
+
+// Merge scraper fields with LLM fields into one flat object
+// This is the final shape that all downstream nodes consume
+return {
+  json: {
+    // ── Scraper fields ──────────────────────────────────────
+    review_id:                      original.review_id,
+    "Review Date":                  original["Review Date"],
+    Department:                     original.Department,
+    Rating:                         original.Rating,
+    Review:                         original.Review,
+    "Customer Name in Google":      original["Customer Name in Google"],
+    Branch:                         original.Branch,
+    Day:                            original.Day,
+    Month:                          original.Month,
+    Year:                           original.Year,
+
+    // ── LLM fields ──────────────────────────────────────────
+    "Reason for Review":            llm.reason_for_review   || "",
+    "Agent Name":                   llm.agent_name          || "N/A",
+    "Review Status":                llm.review_status       || "",
+
+    // ── Routing flags (used by IF nodes, not written to Excel) ──
+    sentiment:                      llm.sentiment,
+    complaint_category:             llm.complaint_category  || "Other",
+    details_provided:               llm.details_provided    === true,
+
+    // ── Action columns (blank until reply is sent) ───────────
+    "Latest Action Taken To Customer": "",
+    "Latest Action Date - Customer":   "",
+    "Latest Action Date - Internal":   "",
+    "Complaint Resolution Days":       "",
+  }
+};
+
+
+# ─────────────────────────────────────────────────────────────
+# NODE 4 — IF Node: Route by Sentiment
+# ─────────────────────────────────────────────────────────────
+Type: IF
+Name: Positive or Negative?
+
+CONDITION:
+  Value 1:    {{ $json.sentiment }}
+  Operation:  Equal
+  Value 2:    POSITIVE
+
+  TRUE branch  → goes to Node 5a (positive path)
+  FALSE branch → goes to Node 5b (negative path)
+
+
+# ═══════════════════════════════════════════════════════════
+# POSITIVE BRANCH (TRUE path from Node 4)
+# ═══════════════════════════════════════════════════════════
+
+# ─────────────────────────────────────────────────────────────
+# NODE 5a — Code Node: Pick Reply Draft
+# ─────────────────────────────────────────────────────────────
+Type: Code
+Name: Select Positive Reply Draft
+Language: JavaScript
+
+CODE:
+// Three pre-drafted positive reply templates.
+// Rotate by day of week so replies feel varied, not templated.
+const POSITIVE_REPLIES = [
+  // Template A — warm and personal
+  `Thank you so much for your kind words! We're thrilled to hear about your positive experience with us. Our team works hard every day to provide the best service possible, and feedback like yours truly makes a difference. We look forward to serving you again!`,
+
+  // Template B — concise and professional
+  `Thank you for taking the time to share your experience! We're delighted you were satisfied with our service. Your feedback motivates our entire team. We appreciate your trust and look forward to continuing to serve you.`,
+
+  // Template C — agent-focused (best when agent_name is present)
+  `We're so glad to hear you had a great experience! Our team is dedicated to making every interaction as smooth and helpful as possible. Thank you for your kind review — it means the world to us. We hope to see you again soon!`
+];
+
+// If an agent was named, prefer Template C
+const agentNamed = $json["Agent Name"] && $json["Agent Name"] !== "N/A";
+let templateIndex;
+if (agentNamed) {
+  templateIndex = 2;
+} else {
+  // Rotate A/B based on the day number (creates variety without randomness)
+  templateIndex = parseInt($json.Day || "1") % 2;
+}
+
+return {
+  json: {
+    ...$json,
+    selected_reply: POSITIVE_REPLIES[templateIndex],
+    template_index: templateIndex + 1,
+  }
+};
+
+
+# ─────────────────────────────────────────────────────────────
+# NODE 6a — Gmail Node: Send Approval Request Email
+# ─────────────────────────────────────────────────────────────
+Type: Gmail → Send Email
+Name: Send Approval Request
+Credential: Gmail Account
+
+CONFIGURATION:
+  To:       your-email@company.com   ← YOUR approval email
+  Subject:  [APPROVAL NEEDED] New Google Review — {{ $json.Branch }} — {{ $json["Review Date"] }}
+
+  Email Format: HTML
+  Message:
+  (Paste this HTML into the message body field)
+
+  <h2 style="color:#1a73e8">New Positive Review — Approval Required</h2>
+
+  <table style="border-collapse:collapse;width:100%;font-family:sans-serif;font-size:14px">
+    <tr><td style="padding:8px;border:1px solid #ddd;background:#f8f8f8"><strong>Branch</strong></td><td style="padding:8px;border:1px solid #ddd">{{ $json.Branch }}</td></tr>
+    <tr><td style="padding:8px;border:1px solid #ddd;background:#f8f8f8"><strong>Date</strong></td><td style="padding:8px;border:1px solid #ddd">{{ $json["Review Date"] }}</td></tr>
+    <tr><td style="padding:8px;border:1px solid #ddd;background:#f8f8f8"><strong>Rating</strong></td><td style="padding:8px;border:1px solid #ddd">{{ $json.Rating }} / 5</td></tr>
+    <tr><td style="padding:8px;border:1px solid #ddd;background:#f8f8f8"><strong>Reviewer</strong></td><td style="padding:8px;border:1px solid #ddd">{{ $json["Customer Name in Google"] }}</td></tr>
+    <tr><td style="padding:8px;border:1px solid #ddd;background:#f8f8f8"><strong>Agent Named</strong></td><td style="padding:8px;border:1px solid #ddd">{{ $json["Agent Name"] }}</td></tr>
+  </table>
+
+  <h3>Review text:</h3>
+  <blockquote style="background:#f0f7ff;border-left:4px solid #1a73e8;padding:12px;margin:12px 0">
+    {{ $json.Review }}
+  </blockquote>
+
+  <h3>Suggested reply (Template {{ $json.template_index }}):</h3>
+  <blockquote style="background:#f0fff0;border-left:4px solid #34a853;padding:12px;margin:12px 0">
+    {{ $json.selected_reply }}
+  </blockquote>
+
+  <p><strong>Click one of the links below to respond:</strong></p>
+
+  <p>
+    <a href="{{ $execution.resumeUrl }}?approve=yes" style="background:#34a853;color:white;padding:12px 24px;text-decoration:none;border-radius:4px;margin-right:12px">
+      APPROVE &amp; LOG
+    </a>
+    &nbsp;&nbsp;
+    <a href="{{ $execution.resumeUrl }}?approve=no" style="background:#ea4335;color:white;padding:12px 24px;text-decoration:none;border-radius:4px">
+      REJECT
+    </a>
+  </p>
+
+  <p style="color:#888;font-size:12px">This approval link expires in 24 hours.</p>
+
+
+# ─────────────────────────────────────────────────────────────
+# NODE 7a — Wait Node: Pause for Approval Click
+# ─────────────────────────────────────────────────────────────
+Type: Wait
+Name: Wait for Approval
+
+CONFIGURATION:
+  Resume On:       Webhook
+  Webhook Suffix:  (leave blank — n8n auto-generates per execution)
+  Limit Wait Time: ON
+  Time:            24 Hours
+
+HOW IT WORKS:
+  The Wait node pauses execution and gives you a unique
+  $execution.resumeUrl for this specific workflow run.
+  That URL was embedded in the APPROVE and REJECT buttons
+  in Node 6a's email.
+
+  When you click APPROVE → the URL is called with ?approve=yes
+  When you click REJECT  → the URL is called with ?approve=no
+  The workflow resumes from this node with those query params available.
+
+
+# ─────────────────────────────────────────────────────────────
+# NODE 8a — IF Node: Check Approval Decision
+# ─────────────────────────────────────────────────────────────
+Type: IF
+Name: Approved?
+
+CONDITION:
+  Value 1:    {{ $json.query.approve }}
+  Operation:  Equal
+  Value 2:    yes
+
+  TRUE  → Node 9a (Excel log with action filled)
+  FALSE → Node 10a (Excel log without action, or Stop)
+
+
+# ─────────────────────────────────────────────────────────────
+# NODE 9a — Microsoft Excel: Append Row (APPROVED)
+# ─────────────────────────────────────────────────────────────
+Type: Microsoft Excel 365 → Append Row to Table
+Name: Log Positive Review (Approved)
+Credential: MS365 Account
+
+CONFIGURATION:
+  Workbook:     [Browse and select your workbook]
+  Worksheet:    [Select your sheet tab]
+  Table Name:   ReviewsTable   (the named Table in Excel — see Excel setup below)
+
+  Columns to write (map exactly to your Excel column headers):
+  ┌─────────────────────────────────────┬──────────────────────────────────────────────────┐
+  │ Excel Column                        │ n8n Expression                                   │
+  ├─────────────────────────────────────┼──────────────────────────────────────────────────┤
+  │ Review Date (dd/mm/yyyy)            │ {{ $('Parse LLM Output').item.json["Review Date"] }} │
+  │ Department                          │ {{ $('Parse LLM Output').item.json.Department }}  │
+  │ Rating                              │ {{ $('Parse LLM Output').item.json.Rating }}      │
+  │ Review                              │ {{ $('Parse LLM Output').item.json.Review }}      │
+  │ Customer Name in Google             │ {{ $('Parse LLM Output').item.json["Customer Name in Google"] }} │
+  │ Reason for Review                   │ {{ $('Parse LLM Output').item.json["Reason for Review"] }} │
+  │ Agent Name                          │ {{ $('Parse LLM Output').item.json["Agent Name"] }} │
+  │ Latest Action Taken To Customer     │ Responded to positive google review              │
+  │ Latest Action Date - Customer       │ {{ $now.format('dd/MM/yyyy') }}                  │
+  │ Latest Action Date - Internal       │ (leave blank)                                    │
+  │ Complaint Resolution Days           │ (leave blank)                                    │
+  │ Review Status                       │ {{ $('Parse LLM Output').item.json["Review Status"] }} │
+  │ Branch                              │ {{ $('Parse LLM Output').item.json.Branch }}     │
+  │ Day                                 │ {{ $('Parse LLM Output').item.json.Day }}        │
+  │ Month                               │ {{ $('Parse LLM Output').item.json.Month }}      │
+  │ Year                                │ {{ $('Parse LLM Output').item.json.Year }}       │
+  └─────────────────────────────────────┴──────────────────────────────────────────────────┘
+
+NOTE on "Latest Action Taken To Customer":
+  For APPROVED positive reviews, this field is hardcoded to the
+  literal string: Responded to positive google review
+  (Per spec: "only update if Responded to positive google review")
+
+
+# NODE 10a — Microsoft Excel: Append Row (REJECTED)
+# Same as Node 9a but "Latest Action Taken To Customer" = "" (blank)
+# and "Latest Action Date - Customer" = "" (blank)
+# Duplicate Node 9a and change those two fields.
+
+
+# ═══════════════════════════════════════════════════════════
+# NEGATIVE BRANCH (FALSE path from Node 4)
+# ═══════════════════════════════════════════════════════════
+
+# ─────────────────────────────────────────────────────────────
+# NODE 5b — Gmail Node: Immediate Alert to Support
+# ─────────────────────────────────────────────────────────────
+Type: Gmail → Send Email
+Name: Negative Review Alert
+Credential: Gmail Account
+
+CONFIGURATION:
+  To:       support@company.com   ← YOUR support team email
+  Subject:  [URGENT] Negative Review — {{ $json.complaint_category }} — {{ $json.Branch }}
+
+  Email Format: HTML
+  Message:
+
+  <h2 style="color:#ea4335">Negative Review Alert</h2>
+  <p><strong>Immediate attention required.</strong></p>
+
+  <table style="border-collapse:collapse;width:100%;font-family:sans-serif;font-size:14px">
+    <tr><td style="padding:8px;border:1px solid #ddd;background:#fff0f0"><strong>Branch</strong></td><td style="padding:8px;border:1px solid #ddd">{{ $json.Branch }}</td></tr>
+    <tr><td style="padding:8px;border:1px solid #ddd;background:#fff0f0"><strong>Date</strong></td><td style="padding:8px;border:1px solid #ddd">{{ $json["Review Date"] }}</td></tr>
+    <tr><td style="padding:8px;border:1px solid #ddd;background:#fff0f0"><strong>Rating</strong></td><td style="padding:8px;border:1px solid #ddd">{{ $json.Rating }} / 5 stars</td></tr>
+    <tr><td style="padding:8px;border:1px solid #ddd;background:#fff0f0"><strong>Reviewer</strong></td><td style="padding:8px;border:1px solid #ddd">{{ $json["Customer Name in Google"] }}</td></tr>
+    <tr><td style="padding:8px;border:1px solid #ddd;background:#fff0f0"><strong>Category</strong></td><td style="padding:8px;border:1px solid #ddd"><strong>{{ $json.complaint_category }}</strong></td></tr>
+    <tr><td style="padding:8px;border:1px solid #ddd;background:#fff0f0"><strong>Agent Named</strong></td><td style="padding:8px;border:1px solid #ddd">{{ $json["Agent Name"] }}</td></tr>
+  </table>
+
+  <h3>Review text:</h3>
+  <blockquote style="background:#fff0f0;border-left:4px solid #ea4335;padding:12px;margin:12px 0">
+    {{ $json.Review }}
+  </blockquote>
+
+  <p style="color:#888;font-size:12px">
+    Reason: {{ $json["Reason for Review"] }} |
+    Details provided: {{ $json.details_provided }}
+  </p>
+
+
+# ─────────────────────────────────────────────────────────────
+# NODE 6b — IF Node: Check details_provided
+# ─────────────────────────────────────────────────────────────
+Type: IF
+Name: Details Provided?
+
+CONDITION:
+  Value 1:    {{ $json.details_provided }}
+  Operation:  Equal (Boolean)
+  Value 2:    true
+
+  TRUE  → Node 7b (Detailed apology draft)
+  FALSE → Node 8b (Generic apology draft)
+
+
+# ─────────────────────────────────────────────────────────────
+# NODE 7b — Code Node: Detailed Apology Draft
+# ─────────────────────────────────────────────────────────────
+Type: Code
+Name: Detailed Apology Draft
+Language: JavaScript
+
+CODE:
+// Complaint-category-aware detailed apology drafts
+const DETAILED_DRAFTS = {
+  "Total Loss Handling":
+    `Dear {{ $json["Customer Name in Google"] }}, we sincerely apologize for the delays and lack of communication you've experienced with your total loss claim. This is not the standard of service we hold ourselves to. We are escalating your case immediately and a senior claims manager will contact you within 24 hours to resolve this personally.`,
+
+  "Wait Time / Delays":
+    `Dear {{ $json["Customer Name in Google"] }}, we're truly sorry for the unacceptable wait times you experienced. Your time is valuable, and we failed to respect that. We are reviewing our processes to prevent this from happening again, and we'd love the opportunity to make this right for you.`,
+
+  "Staff Attitude":
+    `Dear {{ $json["Customer Name in Google"] }}, we are deeply sorry to hear about your experience with our team. The behavior you described does not reflect our values or the standard of care we demand. This has been escalated to our management team for immediate review.`,
+
+  "Claim Processing":
+    `Dear {{ $json["Customer Name in Google"] }}, we sincerely apologize for the difficulties you encountered during your claim. We understand how stressful this process can be, and we clearly fell short of your expectations. We'd like to personally review your case — please allow us to reach out directly.`,
+
+  "Communication Failure":
+    `Dear {{ $json["Customer Name in Google"] }}, we're truly sorry for the breakdown in communication you experienced. Keeping our clients informed is a core responsibility, and we let you down. We're taking immediate steps to follow up on your case and improve our communication processes.`,
+};
+
+const category = $json.complaint_category;
+const draft = DETAILED_DRAFTS[category] ||
+  `Dear ${$json["Customer Name in Google"]}, we sincerely apologize for the experience you described. This is not the standard we strive for, and we are taking your feedback seriously. A member of our team will be in contact with you shortly to address your concerns directly.`;
+
+return {
+  json: {
+    ...$json,
+    selected_reply: draft,
+    reply_type: "Detailed",
+  }
+};
+
+
+# ─────────────────────────────────────────────────────────────
+# NODE 8b — Code Node: Generic Apology Draft
+# ─────────────────────────────────────────────────────────────
+Type: Code
+Name: Generic Apology Draft
+Language: JavaScript
+
+CODE:
+const GENERIC_APOLOGY =
+  `Dear ${$json["Customer Name in Google"]}, we sincerely apologize that your experience did not meet expectations. We value every client's feedback and take all concerns seriously. We would appreciate the opportunity to speak with you directly to understand your experience better and make it right. Please contact us at [support phone/email].`;
+
+return {
+  json: {
+    ...$json,
+    selected_reply: GENERIC_APOLOGY,
+    reply_type: "Generic",
+  }
+};
+
+
+# ─────────────────────────────────────────────────────────────
+# NODE 9b — Microsoft Excel: Append Row (NEGATIVE)
+# ─────────────────────────────────────────────────────────────
+# This node receives from BOTH Node 7b and Node 8b.
+# Connect both outputs to this single node.
+#
+Type: Microsoft Excel 365 → Append Row to Table
+Name: Log Negative Review
+Credential: MS365 Account
+
+CONFIGURATION:
+  Same workbook/worksheet/table as Node 9a.
+
+  Columns — identical mapping to Node 9a EXCEPT:
+  │ Latest Action Taken To Customer │ (blank — leave empty)      │
+  │ Latest Action Date - Customer   │ (blank — leave empty)      │
+  │ Latest Action Date - Internal   │ (blank)                    │
+  │ Complaint Resolution Days       │ (blank)                    │
+
+ Review Date (dd/mm/yyyy)            │ {{ $('Parse LLM Output').item.json["Review Date"] }} │
+  │ Department                          │ {{ $('Parse LLM Output').item.json.Department }}  │
+  │ Rating                              │ {{ $('Parse LLM Output').item.json.Rating }}      │
+  │ Review                              │ {{ $('Parse LLM Output').item.json.Review }}      │
+  │ Customer Name in Google             │ {{ $('Parse LLM Output').item.json["Customer Name in Google"] }} │
+  │ Reason for Review                   │ {{ $('Parse LLM Output').item.json["Reason for Review"] }} │
+  │ Agent Name                          │ {{ $('Parse LLM Output').item.json["Agent Name"] }} │
+  │ Latest Action Taken To Customer     │ Responded to positive google review              │
+  │ Latest Action Date - Customer       │ {{ $now.format('dd/MM/yyyy') }}                  │
+  │ Latest Action Date - Internal       │ (leave blank)                                    │
+  │ Complaint Resolution Days           │ (leave blank)                                    │
+  │ Review Status                       │ {{ $('Parse LLM Output').item.json["Review Status"] }} │
+  │ Branch                              │ {{ $('Parse LLM Output').item.json.Branch }}     │
+  │ Day                                 │ {{ $('Parse LLM Output').item.json.Day }}        │
+  │ Month                               │ {{ $('Parse LLM Output').item.json.Month }}      │
+  │ Year              
+
+  TIP: Add complaint_category and reply_type as hidden columns or
+  a separate internal "Notes" sheet if you want to track which
+  apology template was used per review.
+
+
+# ─────────────────────────────────────────────────────────────
+# EXCEL SETUP — Do this before running the workflow
+# ─────────────────────────────────────────────────────────────
+
+1. Open your Excel Online workbook.
+2. In the first row, create these exact headers (copy-paste):
+
+   Review Date (dd/mm/yyyy) | Department | Rating | Review | Customer Name in Google | Reason for Review | Agent Name | Latest Action Taken To Customer | Latest Action Date - Customer | Latest Action Date - Internal | Complaint Resolution Days | Review Status | Branch | Day | Month | Year
+
+3. Select ALL header cells + at least 1 blank row below.
+4. Go to: Insert → Table → "My table has headers" → OK
+5. In the Table Design tab, rename the table to: ReviewsTable
+6. Save the workbook. Note the exact file path in OneDrive/SharePoint.
+
+WHY A NAMED TABLE:
+   n8n's Excel 365 node requires a named Excel Table (not just a range)
+   to append rows reliably. Without it, the API write fails silently.
+
+
+# ─────────────────────────────────────────────────────────────
+# WORKFLOW 2: WEEKLY FRIDAY REPORT
+# ─────────────────────────────────────────────────────────────
+
+Create a SECOND workflow. Name it: "Weekly Review Report"
+
+
+# NODE 1 — Schedule Trigger
+Type: Schedule Trigger
+Name: Every Friday 5 PM
+
+CONFIGURATION:
+  Trigger Interval: Weeks
+  Day of Week:      Friday
+  Hour:             17  (5 PM)
+  Minute:           0
+  Timezone:         [Your local timezone, e.g. America/New_York]
+
+
+# NODE 2 — Microsoft Excel 365: Get File
+Type: HTTP Request
+Name: Download Excel File via MS Graph
+(Use HTTP Request because n8n's Excel node reads data, not downloads files)
+
+CONFIGURATION:
+  Method:         GET
+  URL:            https://graph.microsoft.com/v1.0/me/drive/root:/[PATH_TO_YOUR_FILE]:/content
+  Authentication: Predefined Credential Type → Microsoft OAuth2 → MS365 Account
+  Response Format: File
+
+  Replace [PATH_TO_YOUR_FILE] with the path in OneDrive, e.g.:
+  /Documents/Google Reviews/ReviewsLog.xlsx
+
+  This downloads the binary Excel file so it can be attached to the email.
+
+
+# NODE 3 — Gmail: Send Weekly Report Email
+Type: Gmail → Send Email
+Name: Send Weekly Report
+Credential: Gmail Account
+
+CONFIGURATION:
+  To:         main@company.com   ← YOUR main reporting email
+  Subject:    Weekly Google Reviews Report — {{ $now.format('dd/MM/yyyy') }}
+  Email Body:
+    Please find attached the Google Reviews log for the week ending
+    {{ $now.format('EEEE, dd MMMM yyyy') }}.
+
+    This report is generated automatically every Friday at 5:00 PM.
+
+  Attachments:  ON
+    Binary Property: data    (the output of Node 2's file download)
+    File Name:    Google_Reviews_{{ $now.format('yyyy-MM-dd') }}.xlsx
+
+
+# ─────────────────────────────────────────────────────────────
+# ERROR HANDLING — Add to all nodes
+# ─────────────────────────────────────────────────────────────
+
+For each node in both workflows:
+1. Click the node → Settings tab → "Continue on Fail": ON
+2. Add an error handler at the end of each branch:
+
+Type: Gmail → Send Email
+Name: Error Alert
+To: your-email@company.com
+Subject: [n8n ERROR] Review workflow failed — {{ $now.toISO() }}
+Body:
+  Workflow: {{ $workflow.name }}
+  Node: {{ $runIndex }}
+  Error: {{ $json.error.message }}
+  Review ID: {{ $('New Review Received').item.json.review_id }}
+
+
+# ─────────────────────────────────────────────────────────────
+# PRODUCTION ACTIVATION CHECKLIST
+# ─────────────────────────────────────────────────────────────
+
+[ ] All credentials created and tested (Groq, Gmail, MS365)
+[ ] Excel workbook has named table "ReviewsTable" with correct headers
+[ ] Webhook node switched from Test URL to Production URL
+[ ] Python scraper .env updated with Production Webhook URL
+[ ] Ran one full end-to-end test with a real review payload
+[ ] Confirmed Excel row was written with all 16 columns
+[ ] Confirmed Gmail approval email arrived with working links
+[ ] Confirmed approval click resumes workflow correctly
+[ ] Confirmed negative review alert email arrived
+[ ] Weekly report workflow tested manually (click "Execute Workflow")
+[ ] Both workflows set to ACTIVE (toggle in top-right of n8n editor)
+[ ] Python scraper added to cron (*/15 * * * *)

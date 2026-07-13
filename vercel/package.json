@@ -1,0 +1,9 @@
+{
+  "name": "awnic-reviews-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AWNIC Google Reviews dashboard (static) + Excel-via-Graph data API (Vercel serverless).",
+  "engines": {
+    "node": ">=18"
+  }
+}
