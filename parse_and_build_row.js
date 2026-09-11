@@ -40,9 +40,12 @@ let posIdx; if (day <= 10) posIdx = 0; else if (day <= 20) posIdx = 1; else posI
 const SCENARIO_1 = `Dear ${customerName},\n\nThank you for taking the time to share your feedback. To help us look into this and support you better, could you please share your claim number and contact details with us?\n\nYou can reach us directly on:\nPhone: +971 600 544 040\nEmail: customercare@awnic.com\nWebsite: www.awnic.com\n\nOur team will take this up on priority and ensure it is reviewed with the attention it deserves. Thank you!`;
 const SCENARIO_2 = `Dear ${customerName},\n\nThank you for speaking with us and sharing your experience. We truly regret that your recent experience did not meet the standards we aim to deliver. Your feedback has been taken seriously and shared with the relevant team for immediate review.\n\nPlease be assured that your case is being closely followed, and we are working to address the concerns raised and resolve this at the earliest.\n\nWe appreciate your patience and the opportunity to make this right. Thank you!`;
 
-let selectedReply;
-if (llm.sentiment === 'POSITIVE') selectedReply = POSITIVE_REPLIES[posIdx];
-else selectedReply = llm.details_provided === true ? SCENARIO_2 : SCENARIO_1;
+// Prefer the AI-generated reply; fall back to templates if it's missing.
+let selectedReply = (llm.suggested_reply && String(llm.suggested_reply).trim())
+  ? String(llm.suggested_reply).trim()
+  : (llm.sentiment === 'POSITIVE'
+      ? POSITIVE_REPLIES[posIdx]
+      : (llm.details_provided === true ? SCENARIO_2 : SCENARIO_1));
 
 return {
   json: {

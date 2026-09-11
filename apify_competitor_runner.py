@@ -43,7 +43,44 @@ from dotenv import load_dotenv
 # ---------------------------------------------------------------------------
 load_dotenv()
 
-APIFY_TOKEN = os.getenv("APIFY_TOKEN", "")
+# Primary + backup Apify tokens. On a quota/auth failure (monthly limit hit,
+# invalid/blocked key) the runner auto-rotates to the next token. Add backups
+# via APIFY_TOKEN_2, APIFY_TOKEN_3, ... and/or comma-separated APIFY_TOKENS.
+def _load_apify_tokens() -> list:
+    toks = []
+    if os.getenv("APIFY_TOKEN"):
+        toks.append(os.getenv("APIFY_TOKEN"))
+    toks += list((os.getenv("APIFY_TOKENS") or "").split(","))
+    i = 2
+    while os.getenv(f"APIFY_TOKEN_{i}"):
+        toks.append(os.getenv(f"APIFY_TOKEN_{i}"))
+        i += 1
+    seen, out = set(), []
+    for t in (x.strip() for x in toks):
+        if t and t not in seen:
+            seen.add(t)
+            out.append(t)
+    return out
+
+
+APIFY_TOKENS = _load_apify_tokens()
+APIFY_TOKEN = APIFY_TOKENS[0] if APIFY_TOKENS else ""
+_apify_idx = 0                          # index of the token currently in use
+ROTATE_STATUS = {401, 402, 403, 429}    # auth / quota / rate-limit -> try next key
+
+
+def _current_apify_token() -> str:
+    return APIFY_TOKENS[_apify_idx] if APIFY_TOKENS else ""
+
+
+def _rotate_apify_token() -> bool:
+    global _apify_idx
+    if _apify_idx + 1 < len(APIFY_TOKENS):
+        _apify_idx += 1
+        log.warning("Apify token exhausted/blocked — switching to backup key #%d of %d",
+                    _apify_idx + 1, len(APIFY_TOKENS))
+        return True
+    return False
 ACTOR_ID = os.getenv("APIFY_ACTOR_ID", "VpQAf550Awe9ey24X")  # kaix/google-maps-reviews-scraper
 WEBHOOK_URL = os.getenv("N8N_WEBHOOK_URL", "https://your-n8n-instance/webhook/new-review")
 WEBHOOK_TIMEOUT_S = int(os.getenv("WEBHOOK_TIMEOUT_S", "120"))
@@ -211,28 +248,37 @@ def run_actor_for_location(location: dict) -> list[dict]:
         "maxReviews": REVIEWS_LIMIT,
     }
     log.info("Running actor for %s (%s)", location["branch"], location["department"])
-    last_err = None
-    for attempt in range(1, 4):
-        try:
-            resp = requests.post(
-                APIFY_RUN_SYNC,
-                params={"token": APIFY_TOKEN},
-                json=payload,
-                timeout=300,
-            )
-            if resp.status_code >= 300:
-                log.error("Actor run failed (%s): %s", resp.status_code, resp.text[:300])
-                return []
-            items = resp.json()
-            log.info("  actor returned %d reviews", len(items))
-            return items
-        except requests.RequestException as e:
-            last_err = e
-            log.warning("  actor call attempt %d/3 failed (%s); retrying...",
-                        attempt, type(e).__name__)
-            time.sleep(5 * attempt)
-    log.error("  actor call gave up after 3 attempts: %s", last_err)
-    return []
+    while True:  # rotate to a backup token on quota/auth failure
+        last_err = None
+        for attempt in range(1, 4):  # retry transient network/DNS failures
+            try:
+                resp = requests.post(
+                    APIFY_RUN_SYNC,
+                    params={"token": _current_apify_token()},
+                    json=payload,
+                    timeout=300,
+                )
+                if resp.status_code in ROTATE_STATUS:
+                    log.error("Actor auth/quota error (%s): %s",
+                              resp.status_code, resp.text[:200])
+                    break  # stop retrying this key -> rotate below
+                if resp.status_code >= 300:
+                    log.error("Actor run failed (%s): %s", resp.status_code, resp.text[:300])
+                    return []
+                items = resp.json()
+                log.info("  actor returned %d reviews", len(items))
+                return items
+            except requests.RequestException as e:
+                last_err = e
+                log.warning("  actor call attempt %d/3 failed (%s); retrying...",
+                            attempt, type(e).__name__)
+                time.sleep(5 * attempt)
+        else:
+            log.error("  actor call gave up after 3 attempts: %s", last_err)
+            return []
+        if not _rotate_apify_token():
+            log.error("  all Apify tokens exhausted")
+            return []
 
 
 def build_payload(item: dict, location: dict) -> dict:
@@ -343,8 +389,10 @@ def process_location(location: dict, seen: dict, now_str: str) -> int:
 
 
 def main() -> None:
-    if not APIFY_TOKEN:
-        raise SystemExit("APIFY_TOKEN is not set (.env).")
+    if not APIFY_TOKENS:
+        raise SystemExit("No Apify token set (APIFY_TOKEN in .env).")
+    log.info("Apify tokens loaded: %d (1 primary + %d backup)",
+             len(APIFY_TOKENS), len(APIFY_TOKENS) - 1)
 
     seen = load_seen()
     log.info("Loaded %d known competitor reviews", len(seen))

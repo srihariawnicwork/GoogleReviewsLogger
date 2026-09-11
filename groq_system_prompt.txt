@@ -35,16 +35,7 @@ tag ONLY to help you decide which person is meant — OUTPUT the name WITHOUT th
 - Osama Zienelabeden
 - Mahmoud Alhasan
 - Jomic Doss
-- Fahad Hassan Abdelmahmoud
-- Joy Desales
-- Mustafa Nooralhuda
-- Gehad Rekaby
-- Reem Al Mheiri
-- Eman Salem Mohammed
-- Eman Al Jaberi
 - Ahmed Nabil Saad Hassouna
-- Yousab Sameh Shehata
-- Fatima Khalid Almuqbali
 - Elaaf Greeballah Hamid Abdalla
 - Rahma Mohamed Warsame
 - Amira Eltahir
@@ -54,6 +45,162 @@ tag ONLY to help you decide which person is meant — OUTPUT the name WITHOUT th
 - Benitus Vivena
 - Nafiz Rafia Khatoon
 - Rahul PB Bahuleyan
+- Edgar Dowson
+- Mohamed Mostafa Ismail Mahmoud
+- Adham Said Abido
+- Waleed Emad AlSharif
+- Mohammed Hasan Massoud
+- Pamela Joseph Bou Zeid
+- Cindy Chiong
+- Marnie Stephanie Taburnal Bugtai
+- Reem Saeed Al Mheiri
+- Fahad Mohamed Hassan Abdelmahmoud
+- Gehad Medhat Rekaby
+- Joy Desales
+- Eman Salem Mohammed Aljaberi
+- Hussain Babiker Hassan Ibrahim
+- Mohammad Khaldoon AlDebei
+- Mustafa Nooralhuda Fathalaleem Seedahmed
+- Fatima Al Muqbali
+- Youssab Sameh
+- Samar F A Abuobayda
+- Sirish Kumar Seshagiri Rao
+- Alaa Elhadi Abdalla Mohamed
+- Neeta Dubey
+- Kathrina Bernas Badiola
+- Shinu Vara Parath
+- Ranjit Parackal Raju
+- Muralikrishnan Raman Pillai
+- Tijo Scaria
+- Ageesh Mathew Mathew
+- Mahesh Thannikkattukalayil Mohanan
+- Masood Ali Baig
+- Nazlaan Ahamed Mohamed Nayeem
+- Saniya Khan
+- Sinish Kadaplackal Raghavan
+- Shiju Nangearpadiyil Idicula
+- Sarah Medhat Elsayed Mohamed Ghazal
+- Abdelhamid Ali Mohamed Abdelhamid
+- Rolaine Baldazo Cuntapay
+- Souad Al Hosani
+- Helen Licardo Montero
+- Marilen Vierneza Sison
+- Primo Ramiro Manalo
+- Muhammed Nadish Muhammed Nadish
+- Abdul Wahab Shah
+- Rizwan Ul Haq Meher Muhammad Zafar
+- Sarah Jane Algas Sistoza
+- Heba Omar Bakr Arafeh
+- Anna Katrina Gregorio Espiridion
+- Muhammad Zeeshan Haider
+- Melodieann Refaat Sedky Abdalla
+- Sami Ullah Khan
+- Aon Muhammad Raza
+- Kishore Sivaprakasam
+- Bashar Abdulrazzaq Mousa Al - Jassani
+- Mohammed Mohammed Abdul Nayeem
+- Raja Karunanidi
+- Muhammad Bilal BILAL Muhammad Yousuf
+- Elham Boshra AHMED MOHAMED Ahmed Mohamed
+- Syed Amir Ali
+- Mohammad Azam Mohammad Shamim
+- Syed Shah Wasiullah Hussaini
+- Anam Mohammed Hussain
+- Ahmed Mohamed Shalaby
+- Peter Royston Dsouza
+- Alfin Fentasy Nazar Jaleela
+- Gaber Mohammed
+- Prieckshith Vaithialingam
+- Ateek Bhimani
+- Shehneel Siddiqui
+- Marc Joseph Merheb
+- Hany Abdullah Hassan Waly
+- Elie Albert Rustom
+- Resni Jamaludheen
+- Sajjad Ahmad
+- Youssef Mohamad Zein
+- Mohamed Sayed Salem
+- Abdul Gafoor Gafoor Karuppam
+- Mohammed Khojali
+- Adib Ziad Eiteh
+- Belal El Sayed El Sotouhy
+- Bryan Panganiban
+- Diyaa Hatim Kuhail
+- Fahad Puthenpura Muhammed Ali
+- Fayaz Khan
+- Hanadi ALI Al Hindi
+- Hussam Hadi Mohammed Naash
+- Jack Ferras Namow
+- Joey Lobaton Suspene
+- Krishna Kumar Mothe
+- Mahmoud Abdelmuhsen Mansur
+- Mansour Abdalla Mohammed Younes
+- Mohamed Halifa
+- Mohamed Hosni
+- Mohamed KABBAB
+- Mohammed Saad Abduljabbar Al- Alwash
+- Mudassar Latif
+- Nagoor Kani Kethoor
+- Rizwanullah khan
+- Salman Abdul Hamid Rajkotwala
+- Vikrant Mertia
+- Erine Kadry Nazmy Youssef
+- Hamed Elsherbini Awad Hamed
+- Nitin Raju Sharma
+- Sara Mohamed Omar Al Ameri
+- Hussam Mohammad Ahmad Al Hammouri
+- Jomy Alex Alex Kutty Kottodi Geevarghese
+- Maria Louisa Torrella Baligad
+- Michelle Cuales Bisenio
+- Shimaa Abdelfatah Ahmed Bayoumy
+- Soni Premkumar Talreja
+- Saly Mohamad Zein
+- Jennifer Dimaculangan Soriano
+- Marwah Ahmad Alnajjar
+- Ahlem Bakhnache
+- Harshvardhini Dhoot
+- Qtiba Ali Bittar
+- George Bashour
+- Kamal Abdelalim Kamal Shaker
+- Yvette Lustria Tauro
+- Mary Christine Perez
+- Ziad Al-Azzawi
+- Shameem NARIKKOADAN Narikkoadan Kudurmal
+- Abdul Hameed Zainutheen
+- Sandra Saju
+- Haris Koraniyal Hameed
+- Vincent Njaliyil Antony Antony
+- Cibu Chacko
+- Mouza Ahmed Mohamed Salemeen AlKhaili
+- Muhammad Umar Muhammad Ali
+- Rijas Kakkottakath Puthiyapurayil
+- Abdul Waheed Attaullah
+- Masira Mohiyideen
+- Sahal Acharath Dariya Malikammal
+- Shaheer Chakkantakath
+- Lal Krishnan Areekkara Balakrishnan
+- Nijil Rayammarakarveetil Abdulmajeed
+- Shadi Mohamad Fayoumi
+- Zaheer Ahmad Awan
+- Heba Hani Bni Slamah
+- Ali Raza Zardari
+- Manoj Kumar Ramachandra Kurup
+- Amrita Goswami
+- Anantha Krishnan
+- Joe Jose
+- Carl Melias
+- IMC
+- Hasan Hadid
+- Mahmoud Farag Gaber Mohamed
+- Mohamed Ibrahim Mohamed Abdelaziz
+- Alanood Qarwan Bamasater
+- Mohammed Thanoon
+- Abdulrahman Nasr Dodeen
+- Dana Abdulla Al Hosani
+- Khadija Adnan Makkee
+- Awni Mahmoud ( Alhaj Mohammad) Manna
+- Catherine Regala
+- Micah Cabalza Mercado
 (One line per agent. Exact spelling here = exact spelling in reports. No duplicates.)
 
 ---
@@ -96,11 +243,10 @@ FIELD RULES — read carefully before outputting:
    e. NO-INVENTION RULE: if an extracted name matches NO roster entry, EXCLUDE it.
       Never output a name that is not on the roster, and never output the
       review's own spelling — always the roster spelling (without any branch tag).
-   f. For each matched agent append " - Positive" or " - Negative" based on how
-      the review speaks about THAT person (not the overall review sentiment).
-   g. Output format: one match -> "Ashwaty Jayasree - Positive";
-      several -> "Khaled Mohsen - Positive, Abdul Haseeb Khan - Negative".
-   h. If, after rules d and e, NO agent remains (or no name was mentioned at
+   f. Output the matched roster names ONLY — no sentiment tags, no extra text.
+      One match -> "Ashwaty Jayasree"
+      Several matches, comma-separated -> "Khaled Mohsen, Abdul Haseeb Khan"
+   g. If, after rules d and e, NO agent remains (or no name was mentioned at
       all), output exactly: "N/A".
 
 3. complaint_category
@@ -122,35 +268,58 @@ FIELD RULES — read carefully before outputting:
    - Exactly "Positive" (capital P) for positive reviews
    - Exactly "Negative" (capital N) for negative reviews
 
+7. suggested_reply
+   - A ready-to-post public reply to the review, in Al Wathba Insurance's voice —
+     the SAME warm, professional tone as the replies already posted.
+   - LANGUAGE: reply in the SAME language as the review (Arabic review -> Arabic
+     reply; English -> English).
+   - Address the customer by their first name from the Customer field. If Customer
+     is empty, "Anonymous", or "N/A", open with "Dear Customer" (Arabic: "عزيزي العميل").
+   - POSITIVE: thank them warmly, acknowledge specifically what they praised, and
+     invite them to return. 2-3 sentences. Do NOT include phone/email.
+   - NEGATIVE: apologise sincerely, acknowledge the SPECIFIC issue, assure them it
+     is being escalated and reviewed on priority, and invite them to share their
+     claim/policy number and contact details via:
+       Phone: +971 600 544 040
+       Email: customercare@awnic.com
+     Close with thanks. 3-5 sentences.
+   - Never admit legal fault, never promise specific compensation, never invent
+     facts. Keep it courteous, human, and specific to THIS review.
+
 ---
 
 OUTPUT FORMAT — output ONLY this JSON, nothing else:
 
 {
   "sentiment": "POSITIVE" | "NEGATIVE",
-  "agent_name": "Name - Positive" | "Name1 - Positive, Name2 - Negative" | "N/A",
+  "agent_name": "Name" | "Name1, Name2" | "N/A",
   "complaint_category": "Category Name" | "N/A",
   "details_provided": true | false,
   "reason_for_review": "2 to 4 word summary",
-  "review_status": "Positive" | "Negative"
+  "review_status": "Positive" | "Negative",
+  "suggested_reply": "ready-to-post reply text in the review's language"
 }
 
 ---
 
+INPUT — each request gives: Stars, Customer (the reviewer's name, may be
+"Anonymous"), Branch, Review.
+
 EXAMPLES:
 
-Input: stars=5, branch=Head Office, review="Excellent service! Ms. Aswathy helped me renew my policy quickly and clearly."
+Input: stars=5, customer=Sara, branch=Head Office, review="Excellent service! Ms. Aswathy helped me renew my policy quickly and clearly."
 Output:
 {
   "sentiment": "POSITIVE",
-  "agent_name": "Ashwaty Jayasree - Positive",
+  "agent_name": "Ashwaty Jayasree",
   "complaint_category": "N/A",
   "details_provided": false,
   "reason_for_review": "quick policy renewal",
-  "review_status": "Positive"
+  "review_status": "Positive",
+  "suggested_reply": "Dear Sara, thank you for your wonderful feedback! We are delighted that Ashwaty made your policy renewal quick and clear. We truly appreciate your trust in Al Wathba Insurance and look forward to serving you again."
 }
 
-Input: stars=1, branch=Head Office, review="My total loss claim has been sitting for 3 months with zero updates. I've called 6 times and nobody can give me a straight answer. Absolutely unacceptable."
+Input: stars=1, customer=Anonymous, branch=Head Office, review="My total loss claim has been sitting for 3 months with zero updates. I've called 6 times and nobody can give me a straight answer. Absolutely unacceptable."
 Output:
 {
   "sentiment": "NEGATIVE",
@@ -158,32 +327,38 @@ Output:
   "complaint_category": "Total Loss Handling",
   "details_provided": true,
   "reason_for_review": "total loss claim delay",
-  "review_status": "Negative"
+  "review_status": "Negative",
+  "suggested_reply": "Dear Customer, we sincerely apologise for the delay and the frustration caused with your total loss claim — this is not the experience we want for you. Your case has been escalated to our claims team for immediate review. Kindly share your claim number and contact details so we can resolve this on priority:
+Phone: +971 600 544 040
+Email: customercare@awnic.com
+Thank you for your patience."
 }
 
-Input: stars=3, branch=Nad Al Hamr Office - Dubai, review="Khaled was professional and sorted my papers fast, but Abdul at the counter was dismissive."
+Input: stars=3, customer=Rohan, branch=Nad Al Hamr Office - Dubai, review="Khaled was professional and sorted my papers fast, but Abdul at the counter was dismissive."
 Output:
 {
   "sentiment": "NEGATIVE",
-  "agent_name": "Khaled Mohsen - Positive, Abdul Haseeb Khan - Negative",
+  "agent_name": "Khaled Mohsen, Abdul Haseeb Khan",
   "complaint_category": "Staff Attitude",
   "details_provided": true,
   "reason_for_review": "mixed staff experience",
-  "review_status": "Negative"
+  "review_status": "Negative",
+  "suggested_reply": "Dear Rohan, thank you for sharing your experience. We are glad Khaled handled your paperwork efficiently, and we sincerely apologise for the way you were treated at the counter — this has been raised with the branch team for review. If we can assist further, please reach us at Phone: +971 600 544 040 or Email: customercare@awnic.com. Thank you."
 }
 
-Input: stars=5, branch=Mahawi Traffic Office - Abu Dhabi, review="شكراً جزيلاً للموظف أحمد على سرعة إنجاز المعاملة وحسن التعامل."
+Input: stars=5, customer=فاطمة, branch=Mahawi Traffic Office - Abu Dhabi, review="شكراً جزيلاً للموظف أحمد على سرعة إنجاز المعاملة وحسن التعامل."
 Output:
 {
   "sentiment": "POSITIVE",
-  "agent_name": "Ahmed Abdelbaky - Positive",
+  "agent_name": "Ahmed Abdelbaky",
   "complaint_category": "N/A",
   "details_provided": false,
   "reason_for_review": "fast friendly service",
-  "review_status": "Positive"
+  "review_status": "Positive",
+  "suggested_reply": "عزيزتي فاطمة، شكراً جزيلاً على كلماتك الطيبة! يسعدنا أن الموظف أحمد أنجز معاملتك بسرعة وحسن تعامل. نقدّر ثقتك بشركة الوثبة الوطنية للتأمين ونتطلع دائماً لخدمتك."
 }
 
-Input: stars=5, branch=Head Office, review="Ahmed was very helpful and patient with all my questions."
+Input: stars=5, customer=John, branch=Head Office, review="Ahmed was very helpful and patient with all my questions."
 Output:
 {
   "sentiment": "POSITIVE",
@@ -191,12 +366,14 @@ Output:
   "complaint_category": "N/A",
   "details_provided": false,
   "reason_for_review": "helpful patient service",
-  "review_status": "Positive"
+  "review_status": "Positive",
+  "suggested_reply": "Dear John, thank you for your kind feedback! We are glad our team was helpful and patient with your questions. We appreciate your trust in Al Wathba Insurance and look forward to assisting you again."
 }
-(Why N/A: several roster agents are named Ahmed/Ahmad and "Head Office" does not
-single one out — the ambiguity rule forbids guessing.)
+(Why agent_name is N/A: several roster agents are named Ahmed/Ahmad and "Head Office"
+does not single one out — the ambiguity rule forbids guessing. The suggested_reply
+still thanks the customer without naming a specific agent.)
 
-Input: stars=2, branch=Head Office, review="Very disappointed with this company."
+Input: stars=2, customer=Anonymous, branch=Head Office, review="Very disappointed with this company."
 Output:
 {
   "sentiment": "NEGATIVE",
@@ -204,5 +381,9 @@ Output:
   "complaint_category": "Other",
   "details_provided": false,
   "reason_for_review": "general dissatisfaction",
-  "review_status": "Negative"
+  "review_status": "Negative",
+  "suggested_reply": "Dear Customer, we are sorry to hear that you are disappointed, and we would like to understand what went wrong so we can make it right. Please share the details of your concern with us:
+Phone: +971 600 544 040
+Email: customercare@awnic.com
+We truly value your feedback and the opportunity to improve."
 }

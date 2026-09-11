@@ -67,7 +67,8 @@
       <input type="date" id="dateTo" style="font-family:inherit;font-size:12.5px;border:1px solid #D8DEE9;border-radius:8px;padding:5px 9px;color:#0B2A4A;background:#fff;cursor:pointer;">
       <span id="rangeLabel" style="font-size:11.5px;font-weight:600;color:#8A93A3;white-space:nowrap;"></span>
     </div>
-    <button onclick="resetFilters()" style="margin-left:auto;border:1px solid #D8DEE9;background:#fff;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;color:#0B2A4A;padding:7px 14px;border-radius:8px;display:flex;align-items:center;gap:6px;">↺ Reset filters</button>
+    <button onclick="exportCSV()" style="margin-left:auto;border:1px solid #0B2A4A;background:#0B2A4A;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;color:#fff;padding:7px 14px;border-radius:8px;display:flex;align-items:center;gap:6px;">⬇ Export CSV</button>
+    <button onclick="resetFilters()" style="border:1px solid #D8DEE9;background:#fff;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:600;color:#0B2A4A;padding:7px 14px;border-radius:8px;display:flex;align-items:center;gap:6px;">↺ Reset filters</button>
   </div>
   </div>
 
@@ -190,15 +191,11 @@
           <div class="ctitle">Agent Performance</div>
           <div class="csub">Mentions across reviews &amp; average rating where they appear</div>
         </div>
-        <button id="agentNegBtn" onclick="toggleAgentNeg()" style="border:1px solid #D8DEE9;background:#fff;color:#42506A;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;">Show negative only</button>
       </div>
       <div style="overflow:auto;flex:1;min-height:0;">
         <table>
           <thead><tr>
             <th>Agent</th><th style="text-align:right;">Total</th>
-            <th style="text-align:right;color:#2F8F5B;">Pos</th>
-            <th style="text-align:right;color:#C0392B;">Neg</th>
-            <th style="text-align:right;">Ratio</th>
             <th style="text-align:right;">Avg ★</th>
           </tr></thead>
           <tbody id="agentRows"></tbody>
@@ -207,7 +204,7 @@
     </div>
     <div class="card">
       <div class="ctitle">Top 10 Agents by Mentions</div>
-      <div class="csub" style="margin-bottom:12px;">Positive vs negative mention split</div>
+      <div class="csub" style="margin-bottom:12px;">Total mentions across reviews</div>
       <div style="position:relative;height:420px;"><canvas id="ch-agentBar"></canvas></div>
     </div>
   </div>
@@ -306,7 +303,9 @@ function parseDate(v){
   if(m) return new Date(+m[3],+m[2]-1,+m[1],+(m[4]||0),+(m[5]||0));
   const d=new Date(s); return isNaN(d)?null:d;
 }
-const rowDate = r => parseDate(r['Review Date']) || parseDate(r['Logged At']);
+// Bucket reviews by when the customer actually posted/edited (reliable date),
+// not when we scraped. Falls back to Review Date, then Logged At.
+const rowDate = r => parseDate(r['Customer Last Update']) || parseDate(r['Review Date']) || parseDate(r['Logged At']);
 const monthKey = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
 const monthLabel = k => MONTH_NAMES[+k.slice(5)-1]+' '+k.slice(2,4);
 const stars = r => '★'.repeat(Math.max(0,Math.min(5,Math.round(num(r)))))+'☆'.repeat(5-Math.max(0,Math.min(5,Math.round(num(r)))));
@@ -322,7 +321,6 @@ function statusOf(r){
   return 'pending';
 }
 const statusStyle = s => s==='posted' ? {bg:'#E5F3EC',fg:'#2F8F5B',label:'Posted'}
-                    : s==='overdue' ? {bg:'#FCEEED',fg:'#C0392B',label:'Overdue · >1 hr'}
                     : {bg:'#FBF3E2',fg:'#9A7B23',label:'Pending'};
 
 function replyMinutes(r){
@@ -333,13 +331,13 @@ function replyMinutes(r){
 const fmtDur = m => m==null?'–': m<60? Math.round(m)+'<span style="font-size:12px;font-weight:500;color:#8A93A3;"> min</span>'
                   : (m/60).toFixed(1)+'<span style="font-size:12px;font-weight:500;color:#8A93A3;"> h</span>';
 
-// agent mentions: "Sarah - Positive, Mike - Negative"
-function agentMentions(r){
+// Agent names: plain comma-separated ("Khaled Mohsen, Abdul Haseeb Khan").
+// Legacy rows may still carry " - Positive/Negative" suffixes — strip them.
+function agentNames(r){
   const raw=r['Agent Name']; if(!raw||String(raw).trim()==='N/A') return [];
-  return String(raw).split(',').map(p=>{
-    const m=p.trim().match(/^(.*?)\s*-\s*(Positive|Negative)$/i);
-    return m&&m[1].trim() ? {name:m[1].trim(), pos:/positive/i.test(m[2])} : null;
-  }).filter(Boolean);
+  return String(raw).split(',')
+    .map(p=>p.trim().replace(/\s*-\s*(Positive|Negative)$/i,'').trim())
+    .filter(n=>n && !AGENT_EXCLUDE.has(n.toLowerCase()));
 }
 
 function mkChart(id,cfg){
@@ -387,12 +385,48 @@ function setDateRange(v){ S.dateRange=v; S.dateFrom=''; S.dateTo='';
   document.getElementById('dateFrom').value=''; document.getElementById('dateTo').value=''; renderAll(); }
 function setStatusFilter(v){ S.statusFilter=v; renderFeed(); renderStatusSegs(); }
 function toggleBranch(b){ S.branchSel[b]=!S.branchSel[b]; renderAll(); }
-function toggleAgentNeg(){ S.agentNeg=!S.agentNeg; renderAgentsTab(); }
-function resetFilters(){ S.statusFilter='all'; S.dateRange='all'; S.branchSel={}; S.agentNeg=false; S.dateFrom=''; S.dateTo='';
+function resetFilters(){ S.statusFilter='all'; S.dateRange='all'; S.branchSel={}; S.dateFrom=''; S.dateTo='';
   document.getElementById('dateFrom').value=''; document.getElementById('dateTo').value=''; renderAll(); }
 
 document.getElementById('dateFrom').addEventListener('change',e=>{ S.dateFrom=e.target.value; renderAll(); });
 document.getElementById('dateTo').addEventListener('change',e=>{ S.dateTo=e.target.value; renderAll(); });
+
+// ══════════════════ CSV EXPORT ══════════════════
+// Exports exactly what the current filters show: branch chips + date range
+// (same filteredOwn() the widgets use). On the Competitors tab it exports the
+// date-filtered competitor rows instead.
+function csvCell(v){
+  const s=String(v==null?'':v);
+  return /[",\n\r]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+}
+function exportCSV(){
+  const isComp = S.tab==='competitors';
+  const cols = isComp
+    ? ['Date Scraped','Review Date','Competitor Name','Branch','Rating','Review','Reviewer Name']
+    : ['Review Date','Branch','Rating','Review','Customer Name in Google','Review Status',
+       'Reason for Review (AI Summarized)','Agent Name','Response Status','Suggested Reply',
+       'Owner Reply','Logged At','Customer Last Update','Agent Reply Time','review_id'];
+  const rows = (isComp?filteredComp():filteredOwn()).slice()
+    .sort((a,b)=>(rowDate(b)||0)-(rowDate(a)||0));
+  if(!rows.length){ alert('No rows match the current filters.'); return; }
+
+  const lines=[cols.map(csvCell).join(',')];
+  rows.forEach(r=>lines.push(cols.map(c=>csvCell(r[c])).join(',')));
+
+  const slug=s=>String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  const sel=selectedBranches();
+  const branchPart = isComp ? 'competitors' : (sel.length ? sel.map(slug).join('+') : 'all-branches');
+  const datePart = (S.dateFrom||S.dateTo)
+    ? `${S.dateFrom||'start'}_to_${S.dateTo||'today'}` : S.dateRange;
+
+  // UTF-8 BOM so Excel opens the file with Arabic review text intact.
+  const blob=new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`awnic-reviews_${branchPart}_${datePart}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(a.href);
+}
 
 // Collapse the filter bar on scroll down; bring it back on scroll up.
 // Anti-jitter: (1) require ~50px of sustained scroll in one direction before
@@ -446,12 +480,12 @@ function renderDateSegs(){
   const el=document.getElementById('rangeLabel'); el.textContent=lbl; el.style.color = lbl==='Invalid range'?C.red:C.green;
 }
 function renderBranchChips(){
-  const names=[...new Set(DATA.own.map(r=>String(r.Branch||'').trim()).filter(Boolean))];
+  const names=sortBranches([...new Set(DATA.own.map(r=>String(r.Branch||'').trim()).filter(Boolean))]);
   document.getElementById('branchChips').innerHTML = names.map(b=>
     `<button class="chip ${S.branchSel[b]?'on':''}" onclick="toggleBranch('${esc(b).replace(/'/g,"\\'")}')">${esc(b)}</button>`).join('');
 }
 function renderStatusSegs(){
-  const segs=[['all','All'],['pending','Pending'],['posted','Posted'],['overdue','Overdue']];
+  const segs=[['all','All'],['pending','Pending'],['posted','Posted']];
   document.getElementById('statusSegs').innerHTML = segs.map(([id,l])=>
     `<button class="seg ${S.statusFilter===id?'on':''}" onclick="setStatusFilter('${id}')" style="font-size:12px;">${l}</button>`).join('');
 }
@@ -483,9 +517,27 @@ function seedPlus(seed, newRows){
   });
   return {stars, count};
 }
-// All own locations combined: total = Σ(seed+new), avg = weighted across all.
+function selectedBranches(){ return Object.keys(S.branchSel).filter(b=>S.branchSel[b]); }
+
+// Display order for branches: Head Office (Abu Dhabi) first, then the other
+// Abu Dhabi offices, then Dubai, then Al Ain; alphabetical within each group.
+function branchOrder(n){
+  const s=String(n).toLowerCase();
+  if(s.includes('head office')&&s.includes('abu dhabi')) return 0;
+  if(s.includes('abu dhabi')) return 1;
+  if(s.includes('dubai')) return 2;
+  if(s.includes('al ain')) return 3;
+  return 4;
+}
+const sortBranches=a=>a.slice().sort((x,y)=>branchOrder(x)-branchOrder(y)||String(x).localeCompare(String(y)));
+
+// Own locations combined: total = Σ(seed+new), avg = weighted across them.
+// Respects the BRANCH filter chips (all-time stats for just the selection);
+// deliberately ignores the date-range filter — these are all-time by definition.
 function ownGoogleStats(){
-  const seeds=(DATA.placeStats||[]).filter(r=>String(r.Type||'').toLowerCase()==='own');
+  const sel=selectedBranches();
+  const all=(DATA.placeStats||[]).filter(r=>String(r.Type||'').toLowerCase()==='own');
+  const seeds=sel.length ? all.filter(r=>sel.includes(String(r.Place||'').trim())) : all;
   let stars=0, tot=0, locs=0;
   seeds.forEach(s=>{
     const place=String(s.Place||'').trim();
@@ -493,7 +545,16 @@ function ownGoogleStats(){
     const agg=seedPlus(s, mine);
     if(agg){ stars+=agg.stars; tot+=agg.count; locs++; }
   });
-  return tot ? {avg:stars/tot, total:tot, locations:locs} : null;
+  return tot ? {avg:stars/tot, total:tot, locations:locs, allLocations:all.length} : null;
+}
+
+// One branch's official all-time stats (seed + increments), for the Branches tab.
+function branchOfficial(name){
+  const s=(DATA.placeStats||[]).find(r=>String(r.Type||'').toLowerCase()==='own'
+    && String(r.Place||'').trim()===name);
+  if(!s) return null;
+  const agg=seedPlus(s, DATA.own.filter(r=>String(r.Branch||'').trim()===name));
+  return agg ? {avg:agg.stars/agg.count, count:agg.count} : null;
 }
 function competitorStats(){
   return (DATA.placeStats||[])
@@ -518,8 +579,7 @@ function renderKPIs(rows){
   const avgOf=rs=>{const v=rs.map(r=>num(r.Rating)).filter(n=>n>0);return v.length?v.reduce((a,b)=>a+b,0)/v.length:0;};
   const avgT=avgOf(thisM), avgL=avgOf(lastM);
   const mom=avgT&&avgL?avgT-avgL:0;
-  const pend=rows.filter(r=>statusOf(r)!=='posted');
-  const overdue=rows.filter(r=>statusOf(r)==='overdue').length;
+  const pend=rows.filter(r=>statusOf(r)==='pending');   // only un-replied received within the last hour
   const ytd=rows.filter(r=>{const d=rowDate(r);return d&&d.getFullYear()===now.getFullYear();}).length;
   const lastY=rows.filter(r=>{const d=rowDate(r);return d&&d.getFullYear()===now.getFullYear()-1;}).length;
   const trendPct=lastM.length?Math.round((thisM.length-lastM.length)/lastM.length*100):null;
@@ -527,10 +587,15 @@ function renderKPIs(rows){
   const kpis=[
     {label:'Reviews This Month',value:thisM.length,trend:trendPct==null?'':(trendPct>=0?'▲ '+trendPct+'%':'▼ '+Math.abs(trendPct)+'%'),tc:trendPct==null||trendPct>=0?C.green:C.red,sub:'vs '+lastM.length+' last month',accent:C.nav},
     {label:'Positive vs Negative',value:tot?Math.round(pos/tot*100)+'/'+Math.round(neg/tot*100):'–',trend:'',tc:C.green,sub:pos+' pos · '+neg+' neg',accent:C.green},
-    (()=>{ const g=ownGoogleStats(); return g
-      ? {label:'Overall Google Rating',value:g.avg.toFixed(1)+' ★',trend:'',tc:C.green,sub:g.total.toLocaleString()+' reviews · '+g.locations+' locations (all-time)',accent:C.gold}
-      : {label:'Overall Google Rating',value:'–',trend:'',tc:C.green,sub:'awaiting place stats (first daily run)',accent:C.gold}; })(),
-    {label:'Pending Replies',value:pend.length,trend:overdue?'⚑ '+overdue+' overdue':'',tc:C.red,sub:'>1 hr flagged red',accent:C.gold},
+    (()=>{ const g=ownGoogleStats(); const sel=selectedBranches();
+      if(!g) return {label:'Overall Google Rating',value:'–',trend:'',tc:C.green,
+        sub: sel.length ? 'no place stats for this selection' : 'awaiting place stats (first daily run)',
+        accent:C.gold};
+      const where = !sel.length ? g.locations+' locations'
+                  : (sel.length===1 ? sel[0] : g.locations+' of '+g.allLocations+' locations');
+      return {label:'Overall Google Rating',value:g.avg.toFixed(1)+' ★',trend:'',tc:C.green,
+        sub:g.total.toLocaleString()+' reviews · '+where+' (all-time)',accent:C.gold}; })(),
+    {label:'Pending Replies',value:pend.length,trend:'',tc:C.green,sub:'awaiting reply',accent:C.gold},
     {label:'Reviews YTD',value:ytd,trend:'',tc:C.green,sub:lastY?'vs '+lastY+' last year':'this calendar year',accent:C.nav},
     {label:'MoM Rating Change',value:(mom>=0?'+':'')+mom.toFixed(1),trend:mom>0?'▲':(mom<0?'▼':''),tc:mom>=0?C.green:C.red,sub:avgL?avgL.toFixed(1)+' → '+avgT.toFixed(1):'insufficient data',accent:C.gold}
   ];
@@ -574,7 +639,7 @@ function renderOverviewCharts(rows){
   mkChart('ch-starDist',{ type:'bar', data:{ labels:['1 ★','2 ★','3 ★','4 ★','5 ★'], datasets:[{ data:dist, backgroundColor:STAR_COLS, borderRadius:5, maxBarThickness:56 }] },
     options: gridOpts({ plugins:{legend:{display:false},tooltip:{backgroundColor:C.nav}}, scales:{y:{ticks:{precision:0},grid:{color:'#F0F2F6'},border:{display:false}},x:{grid:{display:false}}} }) });
 
-  const bn=[...new Set(rows.map(r=>String(r.Branch||'').trim()).filter(Boolean))];
+  const bn=sortBranches([...new Set(rows.map(r=>String(r.Branch||'').trim()).filter(Boolean))]);
   const ds=[1,2,3,4,5].map((st,i)=>({ label:st+'★',
     data:bn.map(b=>rows.filter(r=>String(r.Branch||'').trim()===b&&Math.round(num(r.Rating))===st).length),
     backgroundColor:STAR_COLS[i], stack:'st', maxBarThickness:40 }));
@@ -611,7 +676,7 @@ function renderFeed(){
   const rows=filteredOwn().slice()
     .sort((a,b)=>(parseDate(b['Logged At'])||0)-(parseDate(a['Logged At'])||0));
   let feed=rows;
-  if(S.statusFilter!=='all') feed=rows.filter(r=>statusOf(r)===S.statusFilter);
+  if(S.statusFilter!=='all') feed=rows.filter(r=> S.statusFilter==='posted' ? statusOf(r)==='posted' : statusOf(r)!=='posted');
   document.getElementById('feed').innerHTML = feed.slice(0,60).map(r=>{
     const st=statusStyle(statusOf(r));
     const posR=isPos(r);
@@ -684,28 +749,118 @@ function renderAnalyticsTab(){
 }
 
 // ══════════════════ AGENTS TAB ══════════════════
+// Historical variants written by OLDER prompt versions, mapped to the current
+// canonical roster names — so old Excel rows aggregate under one agent.
+// Keys are lowercase; extend this map if another legacy variant shows up.
+const AGENT_ALIASES = {
+  'aswathy':                    'Ashwaty Jayasree',
+  'reem al mheiri':             'Reem Saeed Al Mheiri',
+  'gehad':                      'Gehad Medhat Rekaby',
+  'gehad rekaby':               'Gehad Medhat Rekaby',
+  'eman al jaberi':             'Eman Salem Mohammed Aljaberi',
+  'eman salem mohammed':        'Eman Salem Mohammed Aljaberi',
+  'fahad hassan abdelmahmoud':  'Fahad Mohamed Hassan Abdelmahmoud',
+  'mustafa nooralhuda':         'Mustafa Nooralhuda Fathalaleem Seedahmed',
+  'fatima khalid almuqbali':    'Fatima Al Muqbali',
+  'yousab sameh shehata':       'Youssab Sameh',
+  'youssab sameh shehata':      'Youssab Sameh',
+  'khalid mohsen':              'Khaled Mohsen',
+  'khalid':                     'Khaled Mohsen',
+  'khaled':                     'Khaled Mohsen',
+  'diyaa':                      'Diyaa Hatim Kuhail',
+  'abdul elbaky':               'Ahmed Abdelbaky',
+  'bilal':                      'Muhammad Bilal BILAL Muhammad Yousuf',
+  'moatasim':                   'Motasem Alakhras',
+  'mutasim mohammed':           'Motasem Alakhras',
+  'jawahir alzahri':            'Jawaher Al Dhaheri',
+};
+
+// Names confirmed NOT on the employee list (old-prompt extractions of
+// non-staff). Hidden from agent widgets; the review rows themselves remain.
+const AGENT_EXCLUDE = new Set([
+  'mujipur rahman',
+]);
+
+// Merge name variants: (1) explicit aliases above; (2) generic rule — if every
+// word of a name appears in EXACTLY ONE longer name, it merges into that one
+// ("Gehad Rekaby" -> "Gehad Medhat Rekaby"). Ambiguous subsets stay separate.
+function mergeAgentVariants(map){
+  const names=Object.keys(map);
+  const toks=n=>n.toLowerCase().split(/\s+/).filter(Boolean);
+  const target={};
+  names.forEach(n=>{
+    const alias=AGENT_ALIASES[n.toLowerCase()];
+    if(alias && alias!==n){ target[n]=alias; return; }
+    const t=toks(n);
+    const supers=names.filter(o=>{
+      if(o===n) return false;
+      const ot=new Set(toks(o));
+      return ot.size>t.length && t.every(x=>ot.has(x));
+    });
+    if(supers.length===1) target[n]=supers[0];
+  });
+  // (3) near-identical spellings: same word count, every word within edit
+  // distance 1 (Khaled/Khalid, Ahmed/Ahmad, Mohamed/Mohammed). The rarer
+  // spelling merges into the more frequent one. Genuinely different names
+  // (e.g. Hosni vs Hasan) differ by 2+ edits and stay separate.
+  const lev1=(a,b)=>{
+    if(a===b) return true;
+    const la=a.length, lb=b.length;
+    if(Math.abs(la-lb)>1) return false;
+    let i=0, j=0, edits=0;
+    while(i<la&&j<lb){
+      if(a[i]===b[j]){ i++; j++; continue; }
+      if(++edits>1) return false;
+      if(la>lb) i++; else if(lb>la) j++; else { i++; j++; }
+    }
+    return edits+(la-i)+(lb-j)<=1;
+  };
+  names.forEach(n=>{
+    if(target[n]) return;
+    const t=toks(n);
+    const near=names.filter(o=>{
+      if(o===n||target[o]) return false;
+      const ot=toks(o);
+      return ot.length===t.length && t.every((w,i)=>lev1(w,ot[i]));
+    });
+    if(near.length===1){
+      const o=near[0];
+      if(map[o].total>map[n].total||(map[o].total===map[n].total&&o<n)) target[n]=o;
+    }
+  });
+  const resolve=n=>{ const seen=new Set(); let c=n;
+    while(target[c]&&!seen.has(c)){ seen.add(c); c=target[c]; } return c; };
+  const out={};
+  names.forEach(n=>{
+    const c=resolve(n);
+    (out[c]=out[c]||{total:0,sum:0,n:0});
+    out[c].total+=map[n].total; out[c].sum+=map[n].sum; out[c].n+=map[n].n;
+  });
+  return out;
+}
+
 function agentStats(rows){
   const map={};
-  rows.forEach(r=>agentMentions(r).forEach(m=>{
-    (map[m.name]=map[m.name]||{pos:0,neg:0,sum:0,n:0});
-    if(m.pos) map[m.name].pos++; else map[m.name].neg++;
-    const rt=num(r.Rating); if(rt>0){ map[m.name].sum+=rt; map[m.name].n++; }
+  rows.forEach(r=>agentNames(r).forEach(name=>{
+    (map[name]=map[name]||{total:0,sum:0,n:0});
+    map[name].total++;
+    const rt=num(r.Rating); if(rt>0){ map[name].sum+=rt; map[name].n++; }
   }));
-  return Object.entries(map).map(([name,v])=>({ name, pos:v.pos, neg:v.neg, total:v.pos+v.neg,
+  const merged=mergeAgentVariants(map);
+  return Object.entries(merged).map(([name,v])=>({ name, total:v.total,
     rating:v.n?v.sum/v.n:0 })).sort((a,b)=>b.total-a.total);
 }
 
 function renderAgentsTab(){
   const rows=filteredOwn();
   const posted=rows.filter(r=>statusOf(r)==='posted').length;
-  const pending=rows.length-posted;
-  const overdue=rows.filter(r=>statusOf(r)==='overdue').length;
-  const pct=rows.length?Math.round(posted/rows.length*100):0;
+  const pending=rows.filter(r=>statusOf(r)==='pending').length;   // un-replied within last hr; older excluded
+  const denom=posted+pending;                                     // overdue excluded from the metric
+  const pct=denom?Math.round(posted/denom*100):0;
   document.getElementById('respPct').textContent=rows.length?pct+'%':'–';
   document.getElementById('respLegend').innerHTML=`
     <div style="display:flex;justify-content:space-between;font-size:12.5px;"><span style="color:${C.green};font-weight:600;">● Posted</span><span style="font-weight:600;">${posted.toLocaleString()}</span></div>
-    <div style="display:flex;justify-content:space-between;font-size:12.5px;"><span style="color:${C.gold};font-weight:600;">● Pending</span><span style="font-weight:600;">${pending.toLocaleString()}</span></div>
-    <div style="display:flex;justify-content:space-between;font-size:12.5px;background:#FCEEED;border:1px solid #F3D3CF;border-radius:8px;padding:7px 10px;margin-top:2px;"><span style="color:${C.red};font-weight:600;">⚑ Overdue (&gt;1 hr)</span><span style="font-weight:700;color:${C.red};">${overdue}</span></div>`;
+    <div style="display:flex;justify-content:space-between;font-size:12.5px;"><span style="color:${C.gold};font-weight:600;">● Pending</span><span style="font-weight:600;">${pending.toLocaleString()}</span></div>`;
   mkChart('ch-respRing',{ type:'doughnut', data:{ labels:['Posted','Pending'], datasets:[{ data:[posted,pending], backgroundColor:[C.green,C.gold], borderWidth:3, borderColor:'#fff' }] },
     options:{ responsive:true, maintainAspectRatio:false, cutout:'74%', plugins:{legend:{display:false},tooltip:{backgroundColor:C.nav}} } });
 
@@ -719,28 +874,19 @@ function renderAgentsTab(){
   mkChart('ch-replyHist',{ type:'bar', data:{ labels:buckets.map(b=>b[0]), datasets:[{ data:bdata, backgroundColor:C.nav, borderRadius:5, maxBarThickness:52 }] },
     options: gridOpts({ plugins:{legend:{display:false},tooltip:{backgroundColor:C.nav}}, scales:{x:{grid:{display:false}},y:{grid:{color:'#F0F2F6'},border:{display:false},title:{display:true,text:'Replies'},ticks:{precision:0}}} }) });
 
-  let agents=agentStats(rows);
-  const btn=document.getElementById('agentNegBtn');
-  if(S.agentNeg){ agents=agents.filter(a=>a.neg>0).sort((a,b)=>b.neg-a.neg);
-    btn.textContent='✓ Negative mentions only'; btn.style.background=C.red; btn.style.color='#fff'; btn.style.borderColor=C.red; }
-  else { btn.textContent='Show negative only'; btn.style.background='#fff'; btn.style.color='#42506A'; btn.style.borderColor='#D8DEE9'; }
-
+  const agents=agentStats(rows);
   document.getElementById('agentRows').innerHTML = agents.map(a=>{
     const rc=a.rating>=4?C.green:(a.rating>=3.6?C.gold:C.red);
     return `<tr>
       <td style="font-weight:500;">${esc(a.name)}</td>
       <td style="text-align:right;font-weight:600;">${a.total}</td>
-      <td style="text-align:right;color:${C.green};">${a.pos}</td>
-      <td style="text-align:right;color:${C.red};">${a.neg}</td>
-      <td style="text-align:right;">${(a.pos/Math.max(1,a.neg)).toFixed(1)}:1</td>
       <td style="text-align:right;font-weight:600;color:${rc};">${a.rating?a.rating.toFixed(1):'–'}</td>
-    </tr>`;}).join('') || '<tr><td colspan="6" style="color:#8A93A3;">No agent mentions in the selected range.</td></tr>';
+    </tr>`;}).join('') || '<tr><td colspan="3" style="color:#8A93A3;">No agent mentions in the selected range.</td></tr>';
 
-  const top=agentStats(rows).slice(0,10);
+  const top=agents.slice(0,10);
   mkChart('ch-agentBar',{ type:'bar', data:{ labels:top.map(a=>a.name), datasets:[
-    {label:'Positive',data:top.map(a=>a.pos),backgroundColor:C.nav,stack:'a',maxBarThickness:22},
-    {label:'Negative',data:top.map(a=>a.neg),backgroundColor:C.red,stack:'a',maxBarThickness:22}
-  ]}, options: gridOpts({ indexAxis:'y', plugins:{legend:{labels:{boxWidth:10,boxHeight:10}},tooltip:{backgroundColor:C.nav}}, scales:{ x:{stacked:true,grid:{color:'#F0F2F6'},border:{display:false},ticks:{precision:0}}, y:{stacked:true,grid:{display:false},ticks:{font:{size:11}}} } }) });
+    {label:'Mentions',data:top.map(a=>a.total),backgroundColor:C.nav,maxBarThickness:22,borderRadius:3}
+  ]}, options: gridOpts({ indexAxis:'y', plugins:{legend:{display:false},tooltip:{backgroundColor:C.nav}}, scales:{ x:{grid:{color:'#F0F2F6'},border:{display:false},ticks:{precision:0}}, y:{grid:{display:false},ticks:{font:{size:11}}} } }) });
 
   document.getElementById('agentCards').innerHTML = agentStats(rows).map(a=>`
     <div style="display:flex;align-items:center;gap:11px;border:1px solid #EAEDF3;border-radius:11px;padding:11px 13px;background:#FCFDFE;">
@@ -755,7 +901,7 @@ function renderAgentsTab(){
 // ══════════════════ BRANCHES TAB ══════════════════
 function renderBranchesTab(){
   const rows=filteredOwn();
-  const names=[...new Set(rows.map(r=>String(r.Branch||'').trim()).filter(Boolean))];
+  const names=sortBranches([...new Set(rows.map(r=>String(r.Branch||'').trim()).filter(Boolean))]);
   const stats=names.map(b=>{
     const br=rows.filter(r=>String(r.Branch||'').trim()===b);
     const rated=br.map(r=>num(r.Rating)).filter(n=>n>0);
@@ -771,23 +917,26 @@ function renderBranchesTab(){
       negCount:neg, topComplaint:top, avgReply, respRate:br.length?posted/br.length*100:0 };
   });
 
-  document.getElementById('branchCards').innerHTML = stats.map(b=>`
+  document.getElementById('branchCards').innerHTML = stats.map(b=>{
+    const off=branchOfficial(b.name);   // official all-time (seed + increments)
+    return `
     <div style="background:#fff;border:1px solid #E7EAF0;border-radius:14px;padding:16px;box-shadow:0 2px 10px rgba(11,42,74,.05);">
       <div style="display:flex;align-items:center;justify-content:space-between;">
         <div style="font-size:14px;font-weight:600;">${esc(b.name)}</div>
         <div style="font-size:19px;font-weight:700;color:${C.gold};">${b.rating?b.rating.toFixed(1):'–'}<span style="font-size:12px;color:${C.gold};">★</span></div>
       </div>
-      <div style="font-size:11.5px;color:#8A93A3;margin-top:2px;">${b.total} reviews</div>
+      <div style="font-size:11.5px;color:#8A93A3;margin-top:2px;">${b.total} scraped reviews</div>
       <div style="display:flex;height:8px;border-radius:5px;overflow:hidden;margin-top:12px;background:#F0F2F6;">
         <div style="width:${b.posPct}%;background:${C.green};"></div>
         <div style="width:${b.negPct}%;background:${C.red};"></div>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:11px;margin-top:5px;color:#8A93A3;"><span style="color:${C.green};font-weight:600;">${b.posPct}% pos</span><span style="color:${C.red};font-weight:600;">${b.negPct}% neg</span></div>
       <div style="border-top:1px solid #F0F2F6;margin-top:12px;padding-top:10px;font-size:12px;line-height:1.7;">
+        <div style="display:flex;justify-content:space-between;"><span style="color:#8A93A3;">All-time (Google)</span><span style="font-weight:600;color:${C.nav};">${off?off.avg.toFixed(1)+'★ · '+off.count.toLocaleString()+' reviews':'—'}</span></div>
         <div style="display:flex;justify-content:space-between;"><span style="color:#8A93A3;">Top complaint</span><span style="font-weight:600;">${esc(b.topComplaint)}</span></div>
         <div style="display:flex;justify-content:space-between;"><span style="color:#8A93A3;">Avg response</span><span style="font-weight:600;">${b.avgReply!=null?(b.avgReply<60?Math.round(b.avgReply)+' min':(b.avgReply/60).toFixed(1)+' h'):'—'}</span></div>
       </div>
-    </div>`).join('') || '<div style="font-size:12.5px;color:#8A93A3;">No branch data in the selected range.</div>';
+    </div>`;}).join('') || '<div style="font-size:12.5px;color:#8A93A3;">No branch data in the selected range.</div>';
 
   const maxNeg=Math.max(1,...stats.map(s=>s.negCount));
   const maxReply=Math.max(1,...stats.map(s=>s.avgReply||0));
@@ -812,21 +961,22 @@ function renderCompetitors(){
   const compAvg=n=>{ const v=byComp[n].map(r=>num(r.Rating)).filter(x=>x>0); return v.length?v.reduce((a,b)=>a+b,0)/v.length:0; };
 
   const ps=competitorStats();               // official all-time competitor stats
-  const g=ownGoogleStats();                 // official all-time own aggregate
+  const g=ownGoogleStats();                 // official all-time own aggregate (branch-filter aware)
   const ourOfficial=g?g.avg:ourAvg;         // fall back to scraped avg until PlaceStats fills
+  const ourName=selectedBranches().length ? 'Al Wathba (selected branches)' : 'Al Wathba Insurance';
 
   if(S.compTab==='rating'){
     const rows = ps.length
-      ? [['Al Wathba Insurance',ourOfficial,true],...ps.map(p=>[p.name,p.rating,false])].sort((a,b)=>b[1]-a[1])
-      : [['Al Wathba Insurance',ourAvg,true],...compNames.map(n=>[n,compAvg(n),false])].sort((a,b)=>b[1]-a[1]);
+      ? [[ourName,ourOfficial,true],...ps.map(p=>[p.name,p.rating,false])].sort((a,b)=>b[1]-a[1])
+      : [[ourName,ourAvg,true],...compNames.map(n=>[n,compAvg(n),false])].sort((a,b)=>b[1]-a[1]);
     mkChart('ch-compRating',{ type:'bar', data:{ labels:rows.map(r=>r[0]), datasets:[{ data:rows.map(r=>+r[1].toFixed(2)), backgroundColor:rows.map(r=>r[2]?C.gold:C.grey), borderRadius:5, maxBarThickness:34 }] },
       options: gridOpts({ indexAxis:'y', plugins:{legend:{display:false},tooltip:{backgroundColor:C.nav}}, scales:{ x:{min:0,max:5,grid:{color:'#F0F2F6'},border:{display:false}}, y:{grid:{display:false}} } }) });
   }
   if(S.compTab==='volume'){
     // All-time totals (official Google counts). Falls back to scraped counts.
     const trows = ps.length
-      ? [['Al Wathba Insurance',(g?g.total:own.length),true],...ps.map(p=>[p.name,p.total,false])].sort((a,b)=>b[1]-a[1])
-      : [['Al Wathba Insurance',own.length,true],...compNames.map(n=>[n,byComp[n].length,false])].sort((a,b)=>b[1]-a[1]);
+      ? [[ourName,(g?g.total:own.length),true],...ps.map(p=>[p.name,p.total,false])].sort((a,b)=>b[1]-a[1])
+      : [[ourName,own.length,true],...compNames.map(n=>[n,byComp[n].length,false])].sort((a,b)=>b[1]-a[1]);
     mkChart('ch-compTotals',{ type:'bar', data:{ labels:trows.map(r=>r[0]), datasets:[{ data:trows.map(r=>r[1]), backgroundColor:trows.map(r=>r[2]?C.gold:C.grey), borderRadius:5, maxBarThickness:34 }] },
       options: gridOpts({ indexAxis:'y', plugins:{legend:{display:false},tooltip:{backgroundColor:C.nav}}, scales:{ x:{grid:{color:'#F0F2F6'},border:{display:false},ticks:{precision:0}}, y:{grid:{display:false}} } }) });
 
@@ -844,7 +994,7 @@ function renderCompetitors(){
     const labels = ps.length ? ps.map(p=>p.name) : compNames;
     const compData = ps.length ? ps.map(p=>+p.rating.toFixed(2)) : compNames.map(n=>+compAvg(n).toFixed(2));
     mkChart('ch-compVs',{ type:'bar', data:{ labels, datasets:[
-      {label:'Al Wathba Insurance',data:labels.map(()=>+ourOfficial.toFixed(2)),backgroundColor:C.gold,maxBarThickness:26,borderRadius:4},
+      {label:ourName,data:labels.map(()=>+ourOfficial.toFixed(2)),backgroundColor:C.gold,maxBarThickness:26,borderRadius:4},
       {label:'Competitor',data:compData,backgroundColor:C.grey,maxBarThickness:26,borderRadius:4}
     ]}, options: gridOpts({ plugins:{legend:{labels:{boxWidth:10,boxHeight:10}},tooltip:{backgroundColor:C.nav}}, scales:{x:{grid:{display:false}},y:{min:0,max:5,grid:{color:'#F0F2F6'},border:{display:false}}} }) });
   }
