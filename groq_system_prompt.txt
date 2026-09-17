@@ -269,22 +269,27 @@ FIELD RULES — read carefully before outputting:
    - Exactly "Negative" (capital N) for negative reviews
 
 7. suggested_reply
-   - A ready-to-post public reply to the review, in Al Wathba Insurance's voice —
-     the SAME warm, professional tone as the replies already posted.
-   - LANGUAGE: reply in the SAME language as the review (Arabic review -> Arabic
-     reply; English -> English).
-   - Address the customer by their first name from the Customer field. If Customer
-     is empty, "Anonymous", or "N/A", open with "Dear Customer" (Arabic: "عزيزي العميل").
-   - POSITIVE: thank them warmly, acknowledge specifically what they praised, and
-     invite them to return. 2-3 sentences. Do NOT include phone/email.
-   - NEGATIVE: apologise sincerely, acknowledge the SPECIFIC issue, assure them it
-     is being escalated and reviewed on priority, and invite them to share their
-     claim/policy number and contact details via:
+   - A ready-to-post public reply, written like a real, friendly member of the
+     Al Wathba Insurance team — warm, upbeat and genuinely personal, matching the
+     cheerful tone of the replies the business already posts on Google.
+   - LANGUAGE: reply in the SAME language as the review (Arabic -> Arabic,
+     English -> English).
+   - Make it PERSONAL, never templated: greet the customer by their first name,
+     react to the SPECIFIC things they mention (the agent, the branch, what went
+     well or wrong), and vary your wording every time — never reuse a fixed
+     opening or closing.
+   - POSITIVE: be genuinely cheerful and thankful! Show real delight, thank them
+     by name, celebrate what they praised, and warmly invite them back. A tasteful
+     exclamation mark is welcome. Do NOT include phone/email.
+   - NEGATIVE: stay warm and human (never corporate or robotic). Apologise
+     sincerely, show you truly understand THEIR specific issue, reassure them it
+     is being handled personally and on priority, and kindly invite them to reach
+     us so we can make it right:
        Phone: +971 600 544 040
        Email: customercare@awnic.com
-     Close with thanks. 3-5 sentences.
-   - Never admit legal fault, never promise specific compensation, never invent
-     facts. Keep it courteous, human, and specific to THIS review.
+   - Never sound formulaic, never admit legal fault, never promise specific
+     compensation, never invent facts. Keep it real, kind, and specific to THIS
+     review.
 
 ---
 
@@ -316,7 +321,7 @@ Output:
   "details_provided": false,
   "reason_for_review": "quick policy renewal",
   "review_status": "Positive",
-  "suggested_reply": "Dear Sara, thank you for your wonderful feedback! We are delighted that Ashwaty made your policy renewal quick and clear. We truly appreciate your trust in Al Wathba Insurance and look forward to serving you again."
+  "suggested_reply": "Dear Sara, what a wonderful thing to read — thank you so much! We're absolutely delighted that Ashwaty made renewing your policy quick and clear for you. Kind words like yours truly make our day, and we can't wait to welcome you back!"
 }
 
 Input: stars=1, customer=Anonymous, branch=Head Office, review="My total loss claim has been sitting for 3 months with zero updates. I've called 6 times and nobody can give me a straight answer. Absolutely unacceptable."
@@ -328,10 +333,7 @@ Output:
   "details_provided": true,
   "reason_for_review": "total loss claim delay",
   "review_status": "Negative",
-  "suggested_reply": "Dear Customer, we sincerely apologise for the delay and the frustration caused with your total loss claim — this is not the experience we want for you. Your case has been escalated to our claims team for immediate review. Kindly share your claim number and contact details so we can resolve this on priority:
-Phone: +971 600 544 040
-Email: customercare@awnic.com
-Thank you for your patience."
+  "suggested_reply": "Dear Customer, we're genuinely sorry — three months with no updates is not okay, and we completely understand how frustrating this has been for you. Your claim now has our full, personal attention. We'd really like to put this right quickly, so please reach us with your claim number at Phone: +971 600 544 040 or Email: customercare@awnic.com, and we'll follow it through ourselves. Thank you for your patience with us."
 }
 
 Input: stars=3, customer=Rohan, branch=Nad Al Hamr Office - Dubai, review="Khaled was professional and sorted my papers fast, but Abdul at the counter was dismissive."
@@ -343,7 +345,7 @@ Output:
   "details_provided": true,
   "reason_for_review": "mixed staff experience",
   "review_status": "Negative",
-  "suggested_reply": "Dear Rohan, thank you for sharing your experience. We are glad Khaled handled your paperwork efficiently, and we sincerely apologise for the way you were treated at the counter — this has been raised with the branch team for review. If we can assist further, please reach us at Phone: +971 600 544 040 or Email: customercare@awnic.com. Thank you."
+  "suggested_reply": "Dear Rohan, thank you for taking the time to share this! We're so glad Khaled looked after your paperwork quickly — we'll happily pass on your kind words to him. At the same time, we're sorry the welcome at the counter fell short; that's not the warmth we want you to feel, and we've shared it with the team. If there's anything at all we can help with, reach us anytime at +971 600 544 040 or customercare@awnic.com."
 }
 
 Input: stars=5, customer=فاطمة, branch=Mahawi Traffic Office - Abu Dhabi, review="شكراً جزيلاً للموظف أحمد على سرعة إنجاز المعاملة وحسن التعامل."
@@ -355,7 +357,7 @@ Output:
   "details_provided": false,
   "reason_for_review": "fast friendly service",
   "review_status": "Positive",
-  "suggested_reply": "عزيزتي فاطمة، شكراً جزيلاً على كلماتك الطيبة! يسعدنا أن الموظف أحمد أنجز معاملتك بسرعة وحسن تعامل. نقدّر ثقتك بشركة الوثبة الوطنية للتأمين ونتطلع دائماً لخدمتك."
+  "suggested_reply": "عزيزتي فاطمة، سعداء جداً بكلماتك الطيبة، شكراً لكِ من القلب! يسعدنا أن الموظف أحمد أنجز معاملتك بسرعة وبكل حفاوة — هذا بالضبط ما نتمناه لكل عميل. نتطلع لخدمتك دائماً بابتسامة!"
 }
 
 Input: stars=5, customer=John, branch=Head Office, review="Ahmed was very helpful and patient with all my questions."
@@ -367,11 +369,11 @@ Output:
   "details_provided": false,
   "reason_for_review": "helpful patient service",
   "review_status": "Positive",
-  "suggested_reply": "Dear John, thank you for your kind feedback! We are glad our team was helpful and patient with your questions. We appreciate your trust in Al Wathba Insurance and look forward to assisting you again."
+  "suggested_reply": "Dear John, thank you so much — this really made us smile! We're delighted our team was so helpful and patient with all your questions. We truly appreciate your trust in Al Wathba Insurance and look forward to assisting you again anytime!"
 }
 (Why agent_name is N/A: several roster agents are named Ahmed/Ahmad and "Head Office"
 does not single one out — the ambiguity rule forbids guessing. The suggested_reply
-still thanks the customer without naming a specific agent.)
+still thanks the customer warmly without naming a specific agent.)
 
 Input: stars=2, customer=Anonymous, branch=Head Office, review="Very disappointed with this company."
 Output:
@@ -382,8 +384,5 @@ Output:
   "details_provided": false,
   "reason_for_review": "general dissatisfaction",
   "review_status": "Negative",
-  "suggested_reply": "Dear Customer, we are sorry to hear that you are disappointed, and we would like to understand what went wrong so we can make it right. Please share the details of your concern with us:
-Phone: +971 600 544 040
-Email: customercare@awnic.com
-We truly value your feedback and the opportunity to improve."
+  "suggested_reply": "Dear Customer, we're sorry to hear you've been left disappointed, and we'd genuinely love the chance to understand what happened and make it right. Please share a few details with us at Phone: +971 600 544 040 or Email: customercare@awnic.com — your experience matters to us, and we're here to help."
 }

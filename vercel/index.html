@@ -316,6 +316,9 @@ const category = r => { const c=r['Reason for Review (AI Summarized)']; return (
 
 function statusOf(r){
   if(String(r['Response Status']||'').toLowerCase().includes('posted')) return 'posted';
+  // A captured owner reply (text or reply timestamp) means the owner HAS
+  // replied, even if the Response Status flag never flipped — treat as posted.
+  if(String(r['Owner Reply']||'').trim() || parseDate(r['Agent Reply Time'])) return 'posted';
   const d=parseDate(r['Logged At']);
   if(d && (Date.now()-d.getTime())>3600e3) return 'overdue';
   return 'pending';
@@ -674,7 +677,7 @@ function renderComplaints(rows){
 
 function renderFeed(){
   const rows=filteredOwn().slice()
-    .sort((a,b)=>(parseDate(b['Logged At'])||0)-(parseDate(a['Logged At'])||0));
+    .sort((a,b)=>(rowDate(b)||0)-(rowDate(a)||0));   // newest first by Customer Last Update (reliable)
   let feed=rows;
   if(S.statusFilter!=='all') feed=rows.filter(r=> S.statusFilter==='posted' ? statusOf(r)==='posted' : statusOf(r)!=='posted');
   document.getElementById('feed').innerHTML = feed.slice(0,60).map(r=>{
